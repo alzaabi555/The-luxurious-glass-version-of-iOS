@@ -330,53 +330,6 @@ const AppContent: React.FC = () => {
       { id: 'guide', icon: HelpCircle, label: 'الدليل' },
   ];
 
-  if (!isSetupComplete) {
-      return (
-                  <div className="glass-card p-8 space-y-6">
-                      <div className="space-y-4">
-                          <div className="relative">
-                              <label className="block text-xs font-black text-slate-600 mb-2 mr-2">الاسم الثلاثي</label>
-                              <div className="relative">
-                                  <UserCircle className="absolute right-4 top-3.5 w-5 h-5 text-slate-400" />
-                                  <input type="text" value={setupName} onChange={e => setSetupName(e.target.value)} className="w-full p-4 pr-12 bg-white/50 rounded-2xl font-bold text-sm border border-white/40 focus:bg-white focus:border-primary/50 outline-none transition-all shadow-inner placeholder:text-gray-400" placeholder="مثال: محمد بن سعيد..." />
-                              </div>
-                          </div>
-                          <div className="relative">
-                              <label className="block text-xs font-black text-slate-600 mb-2 mr-2">اسم المدرسة</label>
-                              <div className="relative">
-                                  <School className="absolute right-4 top-3.5 w-5 h-5 text-slate-400" />
-                                  <input type="text" value={setupSchool} onChange={e => setSetupSchool(e.target.value)} className="w-full p-4 pr-12 bg-white/50 rounded-2xl font-bold text-sm border border-white/40 focus:bg-white focus:border-primary/50 outline-none transition-all shadow-inner placeholder:text-gray-400" placeholder="اسم المدرسة..." />
-                              </div>
-                          </div>
-                          <div className="relative">
-                              <label className="block text-xs font-black text-slate-600 mb-2 mr-2">المادة الدراسية</label>
-                              <div className="relative">
-                                  <Book className="absolute right-4 top-3.5 w-5 h-5 text-slate-400" />
-                                  <input type="text" value={setupSubject} onChange={e => setSetupSubject(e.target.value)} className="w-full p-4 pr-12 bg-white/50 rounded-2xl font-bold text-sm border border-white/40 focus:bg-white focus:border-primary/50 outline-none transition-all shadow-inner placeholder:text-gray-400" placeholder="مثال: اللغة العربية" />
-                              </div>
-                          </div>
-                          <div className="relative">
-                              <label className="block text-xs font-black text-slate-600 mb-2 mr-2">المحافظة التعليمية</label>
-                              <div className="relative">
-                                  <MapPin className="absolute right-4 top-3.5 w-5 h-5 text-slate-400" />
-                                  <select value={setupGovernorate} onChange={e => setSetupGovernorate(e.target.value)} className="w-full p-4 pr-12 bg-white/50 rounded-2xl font-bold text-sm border border-white/40 focus:bg-white focus:border-primary/50 outline-none transition-all appearance-none text-slate-700">
-                                      <option value="">اختر المحافظة...</option>
-                                      {["مسقط", "ظفار", "مسندم", "البريمي", "الداخلية", "شمال الباطنة", "جنوب الباطنة", "جنوب الشرقية", "شمال الشرقية", "الظاهرة", "الوسطى"].map(g => <option key={g} value={g}>{g}</option>)}
-                                  </select>
-                                  <ChevronDown className="absolute left-4 top-4 w-5 h-5 text-slate-400 pointer-events-none" />
-                              </div>
-                          </div>
-                      </div>
-                      <button onClick={handleSetupComplete} disabled={!setupName || !setupSchool} className="w-full py-4 bg-primary text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group">
-                          ابدأ رحلتك <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                      </button>
-                  </div>
-                  <p className="text-center text-[10px] text-slate-400 font-bold">جميع البيانات تحفظ محلياً على جهازك فقط لضمان الخصوصية</p>
-              </div>
-          </div>
-      );
-  }
-
   return (
     <div className={`flex h-screen overflow-hidden app-background pt-safe-top pb-safe-bottom text-slate-800 transition-colors duration-300 font-['Tajawal'] ${isLowPower ? 'low-power' : ''}`} dir="rtl">
       
