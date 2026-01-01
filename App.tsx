@@ -82,8 +82,11 @@ const AppContent: React.FC = () => {
   
   const { theme, setTheme, isLowPower, toggleLowPower } = useTheme();
   
-  // ✅ التعديل هنا: تم إجبار الحالة لتكون true دائماً لتخطي صفحة البداية
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(true);
+  // ✅ التعديل الذكي: يفحص الذاكرة، إذا وجد بيانات يدخل للتطبيق (true)، وإلا يعرض شاشة الإعداد (false)
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => {
+      const savedName = localStorage.getItem('teacherName');
+      return !!(savedName && savedName.trim().length > 0);
+  });
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -107,7 +110,6 @@ const AppContent: React.FC = () => {
 
   useSchoolBell(periodTimes, schedule, notificationsEnabled);
 
-  // هذه الدالة لم تعد ضرورية لبدء التطبيق ولكن بقيت لعدم كسر الكود
   const handleSetupComplete = () => {
       if (setupName && setupSchool) {
           const info = { name: setupName, school: setupSchool, subject: setupSubject, governorate: setupGovernorate };
@@ -328,7 +330,6 @@ const AppContent: React.FC = () => {
       { id: 'guide', icon: HelpCircle, label: 'الدليل' },
   ];
 
-  // ✅ لاحظ: شرط (if (!isSetupComplete)) لا يزال موجوداً ولكن لن يتحقق أبداً لأننا جعلنا الحالة true في الأعلى
   if (!isSetupComplete) {
       return (
           <div className="min-h-screen app-background flex flex-col items-center justify-center p-6 text-slate-800 transition-colors">
