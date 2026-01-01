@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* الخلفية المتدرجة */
+  .app-background { 
+    @apply bg-gradient-to-br from-blue-50 via-white to-green-50 min-h-screen font-sans text-gray-800; 
+  }
+  /* الزجاج السحري */
+  .glass-card { 
+    @apply bg-surface-glass backdrop-blur-md border border-white/50 shadow-glass rounded-2xl transition-all duration-300; 
+  }
+}

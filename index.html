@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <title>راصد</title>
+  
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="راصد">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root { 
+      --sat: env(safe-area-inset-top, 20px); 
+      --sab: env(safe-area-inset-bottom, 20px); 
+    }
+    
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body { 
+      font-family: 'Tajawal', sans-serif; 
+      margin: 0; padding: 0; 
+      position: fixed; inset: 0; 
+      height: 100%; width: 100%;
+      overflow: hidden;
+      -webkit-user-select: none; user-select: none;
+      
+      /* خلفية متدرجة تظهر فوراً قبل تحميل التطبيق */
+      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 50%, #f0fdf4 100%);
+    }
+
+    /* دعم الوضع الليلي */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+      }
+    }
+
+    #root {
+      height: 100%; width: 100%; display: flex; flex-direction: column;
+    }
+
+    /* Loading Screen */
+    #initial-loader {
+      position: fixed; inset: 0; 
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+      display: flex; flex-direction: column; align-items: center; 
+      justify-content: center; z-index: 9999;
+      transition: opacity 0.5s ease-out;
+    }
+    
+    .loader-spinner {
+      width: 50px; height: 50px; 
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #ffffff; 
+      border-radius: 50%;
+      animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  
+  <div id="initial-loader">
+    <div class="loader-spinner"></div>
+    <div style="margin-top:20px; font-weight: 800; color: #fff; font-size: 18px; letter-spacing: 1px;">RASED</div>
+    <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 5px; font-weight: bold;">جاري تحميل النظام...</div>
+  </div>
+
+  <div id="root"></div>
+
+  <script type="module" src="/index.tsx"></script>
+  
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        var loader = document.getElementById('initial-loader');
+        if(loader) {
+           loader.style.opacity = '0';
+           setTimeout(function() { loader.remove(); }, 500);
+        }
+      }, 800);
+    };
+  </script>
+</body>
+</html>
