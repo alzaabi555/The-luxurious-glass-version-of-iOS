@@ -83,7 +83,7 @@ const AppContent: React.FC = () => {
   const { theme, setTheme, isLowPower, toggleLowPower } = useTheme();
   
   // ✅ التعديل الذكي: يفحص الذاكرة، إذا وجد بيانات يدخل للتطبيق (true)، وإلا يعرض شاشة الإعداد (false)
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => {
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>((true) => {
       const savedName = localStorage.getItem('teacherName');
       return !!(savedName && savedName.trim().length > 0);
   });
@@ -332,15 +332,6 @@ const AppContent: React.FC = () => {
 
   if (!isSetupComplete) {
       return (
-          <div className="min-h-screen app-background flex flex-col items-center justify-center p-6 text-slate-800 transition-colors">
-            {/* ... Setup UI Code ... */}
-              <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                  <div className="text-center">
-                      <div className="w-28 h-28 mx-auto mb-6"><BrandLogo className="w-full h-full" /></div>
-                      <h1 className="text-4xl font-black mb-2 tracking-tight text-slate-800">أهلاً بك في راصد</h1>
-                      <p className="text-slate-500 font-bold text-lg">رفيقك الذكي لإدارة الفصل الدراسي</p>
-                  </div>
-
                   <div className="glass-card p-8 space-y-6">
                       <div className="space-y-4">
                           <div className="relative">
