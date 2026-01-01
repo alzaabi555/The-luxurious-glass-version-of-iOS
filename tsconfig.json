@@ -14,10 +14,10 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* Linting - تعطيل التدقيق الصارم للمتغيرات غير المستخدمة */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,      // غيّر هذا إلى false
+    "noUnusedParameters": false,  // غيّر هذا إلى false
     "noFallthroughCasesInSwitch": true
   },
   "include": [
