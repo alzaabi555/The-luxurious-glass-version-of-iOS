@@ -82,11 +82,8 @@ const AppContent: React.FC = () => {
   
   const { theme, setTheme, isLowPower, toggleLowPower } = useTheme();
   
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => {
-      const savedName = localStorage.getItem('teacherName');
-      const savedSchool = localStorage.getItem('schoolName');
-      return !!(savedName && savedName.trim().length > 0 && savedSchool);
-  });
+  // ✅ التعديل هنا: تم إجبار الحالة لتكون true دائماً لتخطي صفحة البداية
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(true);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -110,6 +107,7 @@ const AppContent: React.FC = () => {
 
   useSchoolBell(periodTimes, schedule, notificationsEnabled);
 
+  // هذه الدالة لم تعد ضرورية لبدء التطبيق ولكن بقيت لعدم كسر الكود
   const handleSetupComplete = () => {
       if (setupName && setupSchool) {
           const info = { name: setupName, school: setupSchool, subject: setupSubject, governorate: setupGovernorate };
@@ -313,7 +311,6 @@ const AppContent: React.FC = () => {
     
     if (activeTab === 'competition') return <GroupCompetition students={students} classes={classes} onUpdateStudent={handleUpdateStudent} groups={groups} onUpdateGroups={setGroups} setStudents={setStudents} />;
     
-    // ✅ This is where we ensure Noor Platform is rendered
     if (activeTab === 'noor') return <NoorPlatform />;
     
     if (activeTab === 'guide') return <UserGuide />;
@@ -327,14 +324,15 @@ const AppContent: React.FC = () => {
       { id: 'attendance', icon: CalendarCheck, label: 'الغياب' },
       { id: 'grades', icon: GraduationCap, label: 'الدرجات' },
       { id: 'competition', icon: Trophy, label: 'المنافسة' },
-      // ✅ Added Noor to Navigation
       { id: 'noor', icon: Globe, label: 'نور' },
       { id: 'guide', icon: HelpCircle, label: 'الدليل' },
   ];
 
+  // ✅ لاحظ: شرط (if (!isSetupComplete)) لا يزال موجوداً ولكن لن يتحقق أبداً لأننا جعلنا الحالة true في الأعلى
   if (!isSetupComplete) {
       return (
           <div className="min-h-screen app-background flex flex-col items-center justify-center p-6 text-slate-800 transition-colors">
+            {/* ... Setup UI Code ... */}
               <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
                   <div className="text-center">
                       <div className="w-28 h-28 mx-auto mb-6"><BrandLogo className="w-full h-full" /></div>
