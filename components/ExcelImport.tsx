@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Student } from '../types';
-import { FileUp, CheckCircle2, FileSpreadsheet, Loader2, Info, LayoutGrid, Check, Plus } from 'lucide-react';
+import { FileUp, CheckCircle2, FileSpreadsheet, Loader2, Info, LayoutGrid, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface ExcelImportProps {
@@ -15,14 +16,6 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ existingClasses, onImport, on
   const [targetClass, setTargetClass] = useState<string>('');
   const [newClassInput, setNewClassInput] = useState('');
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-
-  // GLASSMORPHISM STYLES
-  const styles = {
-      card: 'glass-card border border-white/50 shadow-glass backdrop-blur-md p-6 rounded-[2rem]',
-      input: 'w-full bg-white/50 border border-white/40 rounded-2xl py-4 px-4 text-sm font-bold focus:bg-white focus:border-primary/50 outline-none transition-all placeholder:text-gray-400 shadow-inner',
-      gridButton: 'p-3 rounded-xl text-[10px] font-black transition-all border flex items-center justify-between shadow-sm',
-      uploadZone: 'relative flex flex-col items-center text-center p-8 rounded-[2rem] border-2 border-dashed transition-all overflow-hidden',
-  };
 
   const cleanHeader = (header: string): string => {
       if (!header) return '';
@@ -41,6 +34,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ existingClasses, onImport, on
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // File handling logic preserved ...
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -139,16 +133,12 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ existingClasses, onImport, on
     }
   };
 
-  const isReady = isCreatingNew ? newClassInput.length > 0 : targetClass.length > 0;
-
   return (
-    <div className="space-y-6 pb-20 text-slate-800 dark:text-white">
-      
-      {/* Class Selection Card */}
-      <div className={styles.card}>
-        <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2">
-                <LayoutGrid className="w-5 h-5 text-primary" />
+    <div className="space-y-4 text-slate-900 dark:text-white">
+      <div className="glass-card p-4 rounded-2xl border border-white/20 space-y-4 backdrop-blur-xl">
+        <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4 text-blue-500" />
                 توزيع الطلاب على فصل
             </h3>
             <button 
@@ -157,9 +147,9 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ existingClasses, onImport, on
                     setTargetClass('');
                     setNewClassInput('');
                 }}
-                className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full active:scale-95 transition-all hover:bg-primary/20 flex items-center gap-1"
+                className="text-[10px] font-bold text-blue-600 dark:text-blue-200 bg-blue-50/50 dark:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 px-3 py-1 rounded-full active:scale-95 transition-all hover:bg-blue-100 dark:hover:bg-blue-500/30"
             >
-                {isCreatingNew ? 'اختر من القائمة' : <><Plus className="w-3 h-3" /> فصل جديد</>}
+                {isCreatingNew ? 'اختر من القائمة' : 'فصل جديد +'}
             </button>
         </div>
 
@@ -168,83 +158,72 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ existingClasses, onImport, on
                 <input 
                   type="text" 
                   placeholder="اكتب اسم الفصل الجديد (مثال: 4/ب)" 
-                  className={styles.input}
+                  className="w-full bg-white/40 dark:bg-black/20 border border-white/20 rounded-xl py-3 px-4 text-sm font-bold focus:border-blue-500/50 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30"
                   value={newClassInput}
                   onChange={(e) => setNewClassInput(e.target.value)}
                   autoFocus
                 />
             </div>
         ) : (
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar p-1 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1 animate-in fade-in slide-in-from-top-2 duration-200">
                 {existingClasses.length > 0 ? existingClasses.map(cls => (
                     <button
                         key={cls}
                         onClick={() => setTargetClass(cls)}
-                        className={`${styles.gridButton} ${targetClass === cls ? 'bg-primary text-white border-primary shadow-md' : 'bg-white/40 text-slate-600 border-white/40 hover:bg-white/60'}`}
+                        className={`p-3 rounded-xl text-[10px] font-black transition-all border flex items-center justify-between ${targetClass === cls ? 'bg-blue-600 text-white border-blue-500 shadow-md' : 'bg-white/40 dark:bg-white/5 text-slate-600 dark:text-white/50 border-white/20 hover:bg-white/60 dark:hover:bg-white/10'}`}
                     >
                         {cls}
                         {targetClass === cls && <Check className="w-3 h-3" />}
                     </button>
-                )) : <p className="col-span-2 text-center text-[10px] text-slate-400 py-4">لا توجد فصول حالياً، قم بإنشاء فصل جديد.</p>}
+                )) : <p className="col-span-2 text-center text-[10px] text-slate-400 dark:text-white/30 py-4">لا توجد فصول حالياً، قم بإنشاء فصل جديد.</p>}
             </div>
         )}
       </div>
 
-      {/* Upload Zone Card */}
-      <div className={`glass-card ${styles.uploadZone} ${isReady ? 'border-primary/50 bg-blue-50/30' : 'border-gray-300/30 bg-white/20'}`}>
-        {/* Glow Effect if Ready */}
-        {isReady && <div className="absolute inset-0 bg-primary/5 blur-xl"></div>}
-
-        <div className={`w-20 h-20 rounded-3xl shadow-inner flex items-center justify-center mb-4 relative z-10 border transition-all duration-500 ${isReady ? 'bg-white text-primary border-white' : 'bg-white/30 text-slate-400 border-white/20'}`}>
-          {isImporting ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileSpreadsheet className="w-8 h-8" />}
+      <div className={`glass-card p-6 rounded-2xl border-2 border-dashed flex flex-col items-center text-center shadow-sm relative overflow-hidden transition-all backdrop-blur-md ${ (isCreatingNew ? newClassInput : targetClass) ? 'border-blue-400/50 bg-blue-50/20 dark:bg-blue-500/10' : 'border-white/20'}`}>
+        <div className="w-14 h-14 bg-blue-50/50 dark:bg-white/10 rounded-2xl shadow-inner flex items-center justify-center mb-3 relative z-10 border border-blue-100 dark:border-white/5">
+          {isImporting ? <Loader2 className="w-6 h-6 text-blue-500 animate-spin" /> : <FileSpreadsheet className="w-6 h-6 text-blue-500" />}
         </div>
         
-        <h3 className="text-lg font-black mb-1 text-slate-800 dark:text-white relative z-10">
+        <h3 className="text-sm font-black mb-1 text-slate-900 dark:text-white relative z-10">
             {isImporting ? 'جاري المعالجة...' : 'ارفع ملف الإكسل'}
         </h3>
-        <p className="text-xs text-slate-500 mb-6 px-4 relative z-10 font-bold max-w-xs">
-            {isReady
+        <p className="text-[10px] text-slate-500 dark:text-white/40 mb-4 px-4 relative z-10 font-bold">
+            {(isCreatingNew ? newClassInput : targetClass) 
                 ? `سيتم استيراد الطلاب إلى فصل: ${isCreatingNew ? newClassInput : targetClass}`
-                : 'يجب اختيار الفصل أو إنشاء فصل جديد لتفعيل الزر'}
+                : 'يجب اختيار الفصل أولاً لتفعيل الزر'}
         </p>
         
-        <label className={`w-full max-w-[240px] relative z-10 ${!isReady ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+        <label className={`w-full max-w-[200px] relative z-10 ${!(isCreatingNew ? newClassInput : targetClass) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
           <input 
             type="file" 
             accept=".xlsx, .xls, .csv" 
             className="hidden" 
             onChange={handleFileChange} 
-            disabled={isImporting || !isReady} 
+            disabled={isImporting || !(isCreatingNew ? newClassInput : targetClass)} 
           />
-          <div className={`w-full py-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg ${!isReady ? 'bg-gray-200 text-gray-500 shadow-none' : 'bg-primary text-white shadow-primary/30 active:scale-95 hover:bg-blue-700'}`}>
-            <FileUp className="w-4 h-4" /> {isReady ? 'اختر الملف الآن' : 'بانتظار اختيار الفصل'}
+          <div className={`w-full py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg ${isImporting || !(isCreatingNew ? newClassInput : targetClass) ? 'bg-gray-100 text-gray-400 shadow-none border border-gray-200' : 'bg-blue-600 text-white shadow-blue-500/30 active:scale-95'}`}>
+            <FileUp className="w-4 h-4" /> اختر الملف الآن
           </div>
         </label>
       </div>
 
-      {/* Status Notifications */}
       {importStatus === 'success' && (
-        <div className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 p-4 rounded-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 border border-emerald-500/20 backdrop-blur-md">
-          <div className="bg-emerald-500 text-white p-1 rounded-full shadow-lg shadow-emerald-500/30">
-            <CheckCircle2 className="w-5 h-5" />
+        <div className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 border border-emerald-500/20 backdrop-blur-md">
+          <div className="bg-emerald-500 text-white p-1 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+            <CheckCircle2 className="w-3 h-3" />
           </div>
           <div>
-            <span className="text-sm font-black block leading-none">تم الاستيراد بنجاح!</span>
-            <span className="text-[10px] opacity-80">تمت إضافة الطلاب إلى القائمة.</span>
+            <span className="text-[10px] font-black block leading-none">تم الاستيراد بنجاح!</span>
           </div>
         </div>
       )}
 
-      {/* Info Note */}
-      <div className="p-4 bg-amber-50/50 dark:bg-amber-500/10 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-          <div className="flex gap-3 items-start">
-              <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <div className="text-[10px] text-amber-800 dark:text-amber-100 font-bold leading-relaxed">
-                  <p>تم تحديث النظام ليدعم الأرقام العمانية والدولية تلقائياً.</p>
-                  <ul className="list-disc list-inside mt-1 opacity-80">
-                      <li>يتم نسخ الرقم كما هو دون تعديل.</li>
-                      <li>إذا لم يتم العثور على عمود "هاتف"، سيحاول النظام استكشافه ذاتياً.</li>
-                  </ul>
+      <div className="p-3 bg-amber-50/50 dark:bg-amber-500/10 rounded-xl border border-amber-200 dark:border-amber-500/20 backdrop-blur-sm">
+          <div className="flex gap-2 items-start">
+              <Info className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-[9px] text-amber-800 dark:text-amber-100/80 font-bold leading-relaxed text-right">
+                  <p>تأكد من احتواء الملف على أعمدة "الاسم" و"الهاتف" لضمان استيراد البيانات بشكل صحيح.</p>
               </div>
           </div>
       </div>
