@@ -27,5 +27,8 @@
     "./context/**/*.tsx", 
     "./hooks/**/*.ts"
   ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": [
+    "node_modules",
+    "vite.config.ts"
+  ]
 }
