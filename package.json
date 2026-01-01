@@ -8,12 +8,13 @@
   },
   "main": "electron/main.js",
   "scripts": {
-    "build": "npx esbuild index.tsx --bundle --outfile=www/index.js --format=esm --jsx=automatic --minify --target=es2020 && cp index.html manifest.json www/ && (cp icon.png www/ || true) && (cp noor_logo.png www/ || true) && (cp oman_logo.png www/ || true)",
-    "prebuild": "mkdir -p www",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
     "sync": "npx cap sync",
-    "add-android": "npx cap add android",
-    "open-android": "npx cap open android",
-    "generate-icons": "npx capacitor-assets generate",
+    "ios": "npx cap open ios",
+    "android": "npx cap open android",
+    "resources": "capacitor-assets generate",
     "electron:start": "npm run build && electron .",
     "electron:pack": "npm run build && electron-builder --dir",
     "electron:dist": "npm run build && electron-builder"
@@ -21,28 +22,35 @@
   "dependencies": {
     "@capacitor/android": "^6.2.0",
     "@capacitor/app": "^6.0.0",
+    "@capacitor/browser": "^6.0.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/filesystem": "^6.0.0",
-    "@capacitor/share": "^6.0.0",
     "@capacitor/ios": "^6.2.0",
-    "@capacitor/browser": "^6.0.0",
     "@capacitor/local-notifications": "^6.0.0",
+    "@capacitor/share": "^6.0.0",
     "cordova-plugin-inappbrowser": "^6.0.0",
+    "framer-motion": "^10.16.4",
     "html-docx-js-typescript": "^0.1.5",
-    "lucide-react": "^0.454.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "lucide-react": "^0.292.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "recharts": "^2.12.7",
-    "xlsx": "^0.18.5",
-    "framer-motion": "^10.16.4"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0",
     "@capacitor/assets": "^3.0.5",
-    "esbuild": "^0.24.2",
+    "@capacitor/cli": "^6.2.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
-    "concurrently": "^8.2.2",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
     "wait-on": "^7.2.0"
   },
   "build": {
@@ -50,12 +58,12 @@
     "productName": "راصد",
     "copyright": "Copyright © 2025 Mohammed Darwish Al-Zaabi",
     "files": [
-      "www/**/*",
+      "dist/**/*",
       "electron/**/*"
     ],
     "directories": {
       "buildResources": "assets",
-      "output": "dist"
+      "output": "release"
     },
     "win": {
       "target": "nsis",
