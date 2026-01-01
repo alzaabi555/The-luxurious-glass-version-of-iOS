@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, Suspense, ErrorInfo, ReactNode } from 'react';
 import { Student, ScheduleDay, PeriodTime, Group } from './types';
 import Dashboard from './components/Dashboard';
@@ -5,21 +6,18 @@ import StudentList from './components/StudentList';
 import AttendanceTracker from './components/AttendanceTracker';
 import GradeBook from './components/GradeBook';
 import StudentReport from './components/StudentReport';
-import ExcelImport from './components/ExcelImport';
-import NoorPlatform from './components/NoorPlatform';
-import MinistrySync from './components/MinistrySync';
 import GroupCompetition from './components/GroupCompetition';
-import GamificationHub from './components/GamificationHub';
 import UserGuide from './components/UserGuide';
 import About from './components/About';
+import Settings from './components/Settings'; // Imported Settings
 import BrandLogo from './components/BrandLogo';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { useSchoolBell } from './hooks/useSchoolBell';
 import { 
   LayoutDashboard, Users, CalendarCheck, BarChart3, FileText, 
-  Trophy, Crown, Upload, Globe, Building2, HelpCircle, Info, 
-  Menu, X, LogOut, Moon, Sun, Laptop, Zap
+  Trophy, Upload, HelpCircle, Info, 
+  Menu, X, LogOut, Moon, Sun, Laptop, Zap, Settings as SettingsIcon
 } from 'lucide-react';
 
 // --- Error Boundary ---
@@ -36,7 +34,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   static getDerivedStateFromError(_: Error): ErrorBoundaryState { return { hasError: true }; }
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("Uncaught error:", error, errorInfo); }
   render() {
-    if (this.state.hasError) return <div className="p-10 text-center text-slate-800 dark:text-white"><h1>حدث خطأ غير متوقع.</h1><button onClick={() => window.location.reload()} className="mt-4 bg-indigo-500 text-white px-4 py-2 rounded">إعادة تحميل</button></div>;
+    if (this.state.hasError) return <div className="p-10 text-center text-slate-800 dark:text-white glass-card m-10 rounded-3xl"><h1>حدث خطأ غير متوقع.</h1><button onClick={() => window.location.reload()} className="mt-4 bg-white/20 hover:bg-white/30 text-slate-800 dark:text-white px-6 py-2 rounded-xl backdrop-blur-md transition-all">إعادة تحميل</button></div>;
     return (this as any).props.children;
   }
 }
@@ -139,7 +137,7 @@ const AppContent: React.FC = () => {
               onUpdateSchedule={handleUpdateSchedule}
               onSelectStudent={(s) => { setSelectedStudentForReport(s); setActiveTab('report'); }}
               onNavigate={handleNavigate}
-              onOpenSettings={() => {}} 
+              onOpenSettings={() => setActiveTab('settings')} 
               periodTimes={periodTimes}
               setPeriodTimes={setPeriodTimes}
               notificationsEnabled={notificationsEnabled}
@@ -156,7 +154,6 @@ const AppContent: React.FC = () => {
               onUpdateStudent={handleUpdateStudent}
               onDeleteStudent={handleDeleteStudent}
               onViewReport={(s) => { setSelectedStudentForReport(s); setActiveTab('report'); }}
-              onSwitchToImport={() => setActiveTab('import')}
               currentSemester={currentSemester}
               onSemesterChange={setCurrentSemester}
               onEditClass={handleEditClass}
@@ -166,14 +163,12 @@ const AppContent: React.FC = () => {
       if (activeTab === 'attendance') return <AttendanceTracker students={students} classes={classes} setStudents={setStudents} />;
       if (activeTab === 'grades') return <GradeBook students={students} classes={classes} onUpdateStudent={handleUpdateStudent} setStudents={setStudents} currentSemester={currentSemester} onSemesterChange={setCurrentSemester} teacherInfo={teacherInfo} />;
       if (activeTab === 'groups') return <GroupCompetition students={students} classes={classes} onUpdateStudent={handleUpdateStudent} groups={groups} onUpdateGroups={setGroups} setStudents={setStudents} />;
-      if (activeTab === 'gamification') return <GamificationHub students={students} classes={classes} onUpdateStudent={handleUpdateStudent} />;
       if (activeTab === 'report') {
-          if (selectedStudentForReport) return <StudentReport student={selectedStudentForReport} onUpdateStudent={handleUpdateStudent} currentSemester={currentSemester} teacherInfo={teacherInfo} />;
-          return <StudentList students={students} classes={classes} onAddClass={handleAddClass} onAddStudentManually={handleAddStudentManually} onBatchAddStudents={handleBatchAddStudents} onUpdateStudent={handleUpdateStudent} onDeleteStudent={handleDeleteStudent} onViewReport={(s) => { setSelectedStudentForReport(s); setActiveTab('report'); }} onSwitchToImport={() => setActiveTab('import')} currentSemester={currentSemester} onSemesterChange={setCurrentSemester} onEditClass={handleEditClass} onDeleteClass={handleDeleteClass} />;
+          if (selectedStudentForReport) return <StudentReport student={selectedStudentForReport} onUpdateStudent={handleUpdateStudent} currentSemester={currentSemester} teacherInfo={teacherInfo} onBack={() => setSelectedStudentForReport(null)} />;
+          return <StudentList students={students} classes={classes} onAddClass={handleAddClass} onAddStudentManually={handleAddStudentManually} onBatchAddStudents={handleBatchAddStudents} onUpdateStudent={handleUpdateStudent} onDeleteStudent={handleDeleteStudent} onViewReport={(s) => { setSelectedStudentForReport(s); setActiveTab('report'); }} currentSemester={currentSemester} onSemesterChange={setCurrentSemester} onEditClass={handleEditClass} onDeleteClass={handleDeleteClass} />;
       }
-      if (activeTab === 'import') return <ExcelImport existingClasses={classes} onImport={handleBatchAddStudents} onAddClass={handleAddClass} />;
-      if (activeTab === 'noor') return <NoorPlatform />;
-      if (activeTab === 'ministry') return <MinistrySync />;
+      // 'import' tab removed
+      if (activeTab === 'settings') return <Settings />; // New Settings Route
       if (activeTab === 'guide') return <UserGuide />;
       if (activeTab === 'about') return <About />;
       
@@ -186,94 +181,108 @@ const AppContent: React.FC = () => {
       { id: 'attendance', label: 'الغياب', icon: CalendarCheck },
       { id: 'grades', label: 'الدرجات', icon: BarChart3 },
       { id: 'groups', label: 'المنافسة', icon: Trophy },
-      { id: 'gamification', label: 'المتجر', icon: Crown },
-      { id: 'import', label: 'استيراد', icon: Upload },
-      { id: 'noor', label: 'منصة نور', icon: Globe },
-      { id: 'ministry', label: 'البوابة', icon: Building2 },
+      // { id: 'import', label: 'استيراد', icon: Upload }, // Removed
+      { id: 'settings', label: 'البيانات', icon: SettingsIcon }, 
       { id: 'guide', label: 'الدليل', icon: HelpCircle },
       { id: 'about', label: 'حول', icon: Info },
   ];
 
   return (
-    // ✅ 1. تم تغيير الخلفية هنا لتستخدم كلاس التصميم الزجاجي app-background
-    <div className={`flex h-screen app-background transition-colors duration-300 overflow-hidden font-sans text-slate-900 dark:text-slate-100 ${isLowPower ? 'low-power' : ''}`}>
+    <div className={`flex h-screen overflow-hidden font-sans text-slate-900 dark:text-white ${isLowPower ? 'low-power' : ''}`}>
         
-        {/* Sidebar (Desktop) - ✅ 2. تم تحويل القائمة الجانبية إلى زجاجية */}
+        {/* Sidebar (Desktop & Mobile) - iOS 26 Ultra Glass */}
         <aside className={`
-            fixed inset-y-0 right-0 z-50 w-64 
-            bg-white/20 dark:bg-black/20 backdrop-blur-2xl border-l border-white/20 
-            transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 shadow-2xl md:shadow-none
+            fixed inset-y-0 right-0 z-50 w-72 transform transition-transform duration-300 ease-in-out 
             ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+            md:relative md:translate-x-0 md:w-64 bg-transparent border-none
         `}>
-            <div className="h-full flex flex-col">
-                {/* Sidebar Header */}
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10"><BrandLogo className="w-full h-full" showText={false} /></div>
-                        <span className="text-xl font-black text-slate-800 dark:text-white tracking-tight">راصد</span>
+            {/* Desktop Inner Floating Panel */}
+            <div className="h-full p-4">
+                <div className="h-full rounded-[2.5rem] glass-heavy flex flex-col overflow-hidden shadow-2xl border border-white/20">
+                    {/* Sidebar Header */}
+                    <div className="p-6 pb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 shrink-0 glass-icon rounded-2xl border border-white/30"><BrandLogo className="w-full h-full" showText={false} /></div>
+                            <span className="text-xl font-black text-slate-800 dark:text-white tracking-tight text-glow">راصد</span>
+                        </div>
+                        <button onClick={() => setIsSidebarOpen(false)} className="md:hidden glass-icon w-8 h-8 rounded-full text-slate-500 dark:text-white/70"><X className="w-4 h-4"/></button>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white"><X className="w-6 h-6"/></button>
-                </div>
 
-                {/* Nav Items */}
-                <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
-                    {navItems.map(item => (
-                        <button
-                            key={item.id}
-                            onClick={() => handleNavigate(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm 
-                            ${activeTab === item.id 
-                                ? 'bg-indigo-600 shadow-lg shadow-indigo-500/30 text-white' 
-                                : 'text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'}`}
+                    {/* Nav Items - Scrollable area */}
+                    <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-2 custom-scrollbar">
+                        {navItems.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleNavigate(item.id)}
+                                className={`
+                                    w-full flex items-center gap-4 px-4 py-3.5 rounded-[1.2rem] transition-all duration-300 font-bold text-sm relative group
+                                    ${activeTab === item.id 
+                                        ? 'glass-card border-white/40 text-slate-900 dark:text-white shadow-[0_0_20px_rgba(255,255,255,0.15)] bg-white/20' 
+                                        : 'text-slate-600 dark:text-white/60 hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'
+                                    }
+                                `}
+                            >
+                                <div className={`w-6 h-6 flex items-center justify-center transition-all ${activeTab === item.id ? 'scale-110 drop-shadow-md' : 'opacity-70'}`}>
+                                    <item.icon className="w-5 h-5" />
+                                </div>
+                                <span className="block tracking-wide">{item.label}</span>
+                                
+                                {activeTab === item.id && (
+                                    <div className="absolute left-3 w-1.5 h-1.5 bg-indigo-400 dark:bg-white rounded-full shadow-[0_0_10px_currentColor]"></div>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+
+                    {/* Footer Actions - Glass Buttons */}
+                    <div className="p-4 pt-2 space-y-2 bg-transparent">
+                        <button 
+                            onClick={() => setTheme(isDark ? 'ceramic' : 'vision')}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-slate-600 dark:text-white/60 hover:bg-white/10 glass-card border-white/10 hover:border-white/20 active:scale-95"
                         >
-                            <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
-                            {item.label}
+                            <div className="w-6 h-6 flex items-center justify-center">
+                                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                            </div>
+                            <span className="block">{isDark ? 'الوضع النهاري' : 'الوضع الليلي'}</span>
                         </button>
-                    ))}
-                </nav>
 
-                {/* Footer Actions */}
-                <div className="p-4 border-t border-white/10 space-y-2">
-                    <button 
-                        onClick={toggleLowPower}
-                        className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${isLowPower ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400' : 'text-slate-500 hover:bg-white/40 dark:hover:bg-white/10'}`}
-                    >
-                        {isLowPower ? <Zap className="w-4 h-4 fill-amber-500"/> : <Zap className="w-4 h-4"/>}
-                        {isLowPower ? 'وضع التوفير مفعل' : 'وضع التوفير'}
-                    </button>
-
-                    <button 
-                        onClick={() => setTheme(isDark ? 'ceramic' : 'vision')}
-                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/10 transition-all text-xs font-bold"
-                    >
-                        {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                        {isDark ? 'الوضع النهاري' : 'الوضع الليلي'}
-                    </button>
+                        <button 
+                            onClick={toggleLowPower}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all glass-card border-white/10 hover:border-white/20 active:scale-95 ${isLowPower ? 'text-amber-500 border-amber-500/30' : 'text-slate-600 dark:text-white/60 hover:bg-white/10'}`}
+                        >
+                            <div className="w-6 h-6 flex items-center justify-center">
+                                <Zap className={`w-4 h-4 ${isLowPower ? 'fill-amber-500 text-amber-500' : ''}`} />
+                            </div>
+                            <span className="block">{isLowPower ? 'توفير الطاقة' : 'وضع التوفير'}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
 
         {/* Overlay for mobile sidebar */}
         {isSidebarOpen && (
-            <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
+            <div className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)}></div>
         )}
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative h-full">
-            {/* Mobile Header - ✅ 3. تم تحويل رأس الصفحة في الجوال إلى زجاجي */}
-            <div className="md:hidden bg-white/30 dark:bg-black/30 backdrop-blur-xl border-b border-white/20 p-4 flex items-center justify-between shrink-0 z-30">
-                <div className="flex items-center gap-3">
-                    <BrandLogo className="w-8 h-8" showText={false} />
-                    <span className="font-black text-lg text-slate-900 dark:text-white">راصد</span>
+            {/* Mobile Header (Floating Glass) */}
+            <div className="md:hidden p-4 pb-0 z-30">
+                <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between border border-white/20 shadow-lg">
+                    <div className="flex items-center gap-3">
+                        <BrandLogo className="w-8 h-8" showText={false} />
+                        <span className="font-black text-lg text-slate-800 dark:text-white text-glow">راصد</span>
+                    </div>
+                    <button onClick={() => setIsSidebarOpen(true)} className="glass-icon w-10 h-10 rounded-2xl text-slate-800 dark:text-white active:scale-95 transition-transform hover:bg-white/20">
+                        <Menu className="w-5 h-5" />
+                    </button>
                 </div>
-                <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white/40 dark:bg-white/10 rounded-xl text-slate-600 dark:text-white">
-                    <Menu className="w-6 h-6" />
-                </button>
             </div>
 
             {/* Content Scroll Area */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 custom-scrollbar scroll-smooth">
-                <div className="max-w-7xl mx-auto h-full">
+                <div className="max-w-7xl mx-auto h-full pb-20 md:pb-0">
                     {renderContent()}
                 </div>
             </div>

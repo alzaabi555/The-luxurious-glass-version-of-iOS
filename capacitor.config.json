@@ -1,7 +1,7 @@
 {
-  "appId": "com.madrasati.app.v2",
-  "appName": "راصد (تجريبي)",
-  "webDir": "dist",
+  "appId": "com.madrasati.app",
+  "appName": "راصد",
+  "webDir": "www",
   "server": {
     "androidScheme": "https",
     "cleartext": true,
