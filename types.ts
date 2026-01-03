@@ -1,6 +1,7 @@
 
 export interface Student {
   id: string;
+  ministryId?: string; // معرف الوزارة للمزامنة
   name: string;
   grade: string;
   classes: string[];
@@ -11,8 +12,6 @@ export interface Student {
   avatar?: string;
   spentCoins?: number; 
   groupId?: string | null; // معرف الفريق (ديناميكي)
-  // حقول إضافية للربط مع الوزارة
-  ministryId?: string; // StudentSchoolNo
 }
 
 export interface Group {
@@ -66,29 +65,26 @@ export interface AssessmentTool {
   maxScore: number;
 }
 
-// بيانات جلسة الوزارة
+// --- أنواع بيانات الوزارة (Ministry Sync) ---
 export interface MinistrySession {
-    userId: string;
-    auth: string; // Token
-    userRoleId: string;
-    schoolId: string;
-    teacherId?: string; // DepInsId
+  userId: string;
+  auth: string;
+  userRoleId: string;
+  schoolId: string;
+  teacherId: string;
 }
 
-// تفاصيل الغياب لكل طالب للإرسال للسيرفر
 export interface StdsAbsDetail {
-    StudentId: string; // أو StudentSchoolNo
-    AbsenceType: number; // عادة 1=غياب، 2=تأخر، 0=حضور
-    ReasonId?: number; // اختياري
-    Notes?: string;
+  StudentId: string;
+  AbsenceType: number;
+  Notes: string;
 }
 
-// تفاصيل الدرجات لكل طالب للإرسال للسيرفر
 export interface StdsGradeDetail {
-    StudentId: string;
-    MarkValue: string; // الدرجة كنص
-    IsAbsent?: boolean; // هل غائب عن الامتحان
-    Notes?: string;
+  StudentId: string;
+  MarkValue: string;
+  IsAbsent: boolean;
+  Notes: string;
 }
 
 // --- تعريف الجسر الإلكتروني (Electron Bridge) ---

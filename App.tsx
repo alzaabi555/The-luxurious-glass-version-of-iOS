@@ -10,7 +10,6 @@ import GroupCompetition from './components/GroupCompetition';
 import UserGuide from './components/UserGuide';
 import About from './components/About';
 import Settings from './components/Settings';
-import MinistrySync from './components/MinistrySync'; // Import MinistrySync
 import BrandLogo from './components/BrandLogo';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
@@ -18,7 +17,7 @@ import { useSchoolBell } from './hooks/useSchoolBell';
 import { 
   LayoutDashboard, Users, CalendarCheck, BarChart3, FileText, 
   Trophy, HelpCircle, Info, 
-  Menu, X, Moon, Sun, Zap, Settings as SettingsIcon, MoreHorizontal, Grid, Building2 // Import Building2 icon
+  Menu, X, Moon, Sun, Zap, Settings as SettingsIcon, MoreHorizontal, Grid
 } from 'lucide-react';
 import Modal from './components/Modal';
 
@@ -171,7 +170,6 @@ const AppContent: React.FC = () => {
           if (selectedStudentForReport) return <StudentReport student={selectedStudentForReport} onUpdateStudent={handleUpdateStudent} currentSemester={currentSemester} teacherInfo={teacherInfo} onBack={() => setSelectedStudentForReport(null)} />;
           return <StudentList students={students} classes={classes} onAddClass={handleAddClass} onAddStudentManually={handleAddStudentManually} onBatchAddStudents={handleBatchAddStudents} onUpdateStudent={handleUpdateStudent} onDeleteStudent={handleDeleteStudent} onViewReport={(s) => { setSelectedStudentForReport(s); setActiveTab('report'); }} currentSemester={currentSemester} onSemesterChange={setCurrentSemester} onEditClass={handleEditClass} onDeleteClass={handleDeleteClass} />;
       }
-      if (activeTab === 'ministry') return <MinistrySync />;
       if (activeTab === 'settings') return <Settings />;
       if (activeTab === 'guide') return <UserGuide />;
       if (activeTab === 'about') return <About />;
@@ -190,7 +188,6 @@ const AppContent: React.FC = () => {
   // Secondary items (In "More" menu)
   const secondaryNavItems = [
       { id: 'groups', label: 'المنافسة', icon: Trophy },
-      { id: 'ministry', label: 'بوابة الوزارة', icon: Building2 }, // Added Ministry
       { id: 'settings', label: 'البيانات', icon: SettingsIcon },
       { id: 'guide', label: 'الدليل', icon: HelpCircle },
       { id: 'about', label: 'حول', icon: Info },
@@ -270,7 +267,7 @@ const AppContent: React.FC = () => {
 
             {/* --- IPHONE BOTTOM BAR (Mobile Only) --- */}
             <div 
-                className="md:hidden fixed bottom-6 left-4 right-4 z-50"
+                className="md:hidden fixed bottom-2 left-3 right-3 z-50"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
                 <div className="glass-heavy rounded-[2rem] p-1.5 flex justify-between items-center shadow-2xl border border-white/20 backdrop-blur-xl relative">
@@ -291,7 +288,7 @@ const AppContent: React.FC = () => {
                     {/* More Button */}
                     <button
                         onClick={() => setShowMoreMenu(true)}
-                        className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[1.5rem] transition-all duration-300 ${['groups', 'settings', 'guide', 'about', 'ministry'].includes(activeTab) ? 'text-indigo-600 dark:text-white bg-white/10' : 'text-slate-400 dark:text-white/40'}`}
+                        className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[1.5rem] transition-all duration-300 ${['groups', 'settings', 'guide', 'about'].includes(activeTab) ? 'text-indigo-600 dark:text-white bg-white/10' : 'text-slate-400 dark:text-white/40'}`}
                     >
                         <Grid className="w-6 h-6 mb-0.5" />
                         <span className="text-[9px] font-black">المزيد</span>

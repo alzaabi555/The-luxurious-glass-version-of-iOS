@@ -7,10 +7,7 @@
     "androidScheme": "https",
     "cleartext": true,
     "allowNavigation": [
-      "*",
-      "*.moe.gov.om",
-      "mobile.moe.gov.om",
-      "lms.moe.gov.om"
+      "*"
     ]
   },
   "plugins": {
