@@ -7,12 +7,13 @@ import { useApp } from '../context/AppContext';
 import { Capacitor } from '@capacitor/core';
 import Modal from './Modal';
 
-// Expanded MOE Service URLs
+// Expanded MOE Service URLs - Reordered for Teachers
 const URL_PRESETS = [
-    { name: 'الأساسي (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
-    { name: 'البوابة التعليمية (EduGate)', url: 'https://mobile.moe.gov.om/EduGate/Services/Mobility.svc' },
+    { name: 'الأساسي للمعلم (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
     { name: 'خدمات المعلم (Teacher)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/TeacherServices.svc' },
     { name: 'بوابة الهاتف (Portal)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/PortalMobility.svc' },
+    { name: 'البوابة التعليمية (EduGate)', url: 'https://mobile.moe.gov.om/EduGate/Services/Mobility.svc' },
+    { name: 'بوابة ولي الأمر (Parent)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility.Parent/Services/ParentService.svc' },
 ];
 
 const MinistrySync: React.FC = () => {
@@ -225,7 +226,7 @@ const MinistrySync: React.FC = () => {
       {/* Header */}
       <div className="pt-8 pb-4 px-6 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10 sticky top-0 z-10">
          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">بوابة الوزارة</h2>
+            <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">بوابة الوزارة (معلم)</h2>
             <div className="flex items-center gap-3">
                 <button onClick={() => setShowSettings(true)} className="p-2 rounded-full bg-gray-200 dark:bg-white/10 hover:bg-gray-300 transition-colors">
                     <Settings2 className="w-4 h-4 text-black dark:text-white" />
@@ -236,7 +237,7 @@ const MinistrySync: React.FC = () => {
             </div>
          </div>
          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 font-medium">
-             {session ? `مرحباً، المعلم (ID: ${session.userId})` : 'الاتصال الذكي (Smart Sync)'}
+             {session ? `مرحباً، المستخدم (ID: ${session.userId})` : 'الاتصال الذكي (Smart Sync)'}
          </p>
       </div>
 
@@ -282,7 +283,6 @@ const MinistrySync: React.FC = () => {
              </>
          ) : (
              <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-                 {/* ... (Existing UI for session active remains same) ... */}
                  {/* Session Status */}
                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
                      <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
