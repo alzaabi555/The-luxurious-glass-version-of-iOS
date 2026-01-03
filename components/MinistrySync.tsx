@@ -1,19 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info, Link as LinkIcon, Check, X, RefreshCw, Activity, ArrowDownCircle } from 'lucide-react';
+import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info, Link as LinkIcon, Check, X, RefreshCw, Activity, ArrowDownCircle, Lock } from 'lucide-react';
 import { ministryService } from '../services/MinistryService';
 import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 import { useApp } from '../context/AppContext';
 import { Capacitor } from '@capacitor/core';
 import Modal from './Modal';
 
-// Expanded MOE Service URLs - Reordered for Teachers
+// القائمة الرسمية فقط
 const URL_PRESETS = [
-    { name: 'الأساسي للمعلم (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
-    { name: 'خدمات المعلم (Teacher)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/TeacherServices.svc' },
-    { name: 'بوابة الهاتف (Portal)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/PortalMobility.svc' },
-    { name: 'البوابة التعليمية (EduGate)', url: 'https://mobile.moe.gov.om/EduGate/Services/Mobility.svc' },
-    { name: 'بوابة ولي الأمر (Parent)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility.Parent/Services/ParentService.svc' },
+    { name: 'الخادم الأساسي (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
+    { name: 'خادم الخدمات (TeacherServices)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/TeacherServices.svc' },
 ];
 
 const MinistrySync: React.FC = () => {
@@ -31,17 +28,15 @@ const MinistrySync: React.FC = () => {
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [testMessage, setTestMessage] = useState('');
 
-  // Tabs: 'absence' | 'marks'
+  // Tabs
   const [activeTab, setActiveTab] = useState<'absence' | 'marks'>('absence');
 
-  // --- Common Data ---
+  // Data
   const [filtersData, setFiltersData] = useState<any[]>([]);
   const [selectedFilterIndex, setSelectedFilterIndex] = useState<number>(-1);
-
-  // --- Absence State ---
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // --- Marks State ---
+  // Marks Config
   const [marksConfig, setMarksConfig] = useState({
       termId: '1',
       subjectId: '', 
@@ -65,7 +60,7 @@ const MinistrySync: React.FC = () => {
   const handleTestConnection = async () => {
       if (!customApiUrl) return;
       setTestStatus('testing');
-      setTestMessage('جاري البحث عن نقطة الاتصال...');
+      setTestMessage('جاري الاتصال...');
       
       const result = await ministryService.testConnection(customApiUrl);
       
@@ -94,7 +89,7 @@ const MinistrySync: React.FC = () => {
       setShowSettings(false);
   };
 
-  // --- Auth & Filters Logic ---
+  // --- Auth Logic ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
@@ -109,7 +104,7 @@ const MinistrySync: React.FC = () => {
                 const filters = await ministryService.getStudentAbsenceFilter(result);
                 if (Array.isArray(filters)) setFiltersData(filters);
                 else if (filters && typeof filters === 'object') setFiltersData([filters]);
-            } catch (e) { console.warn('Could not auto-fetch filters', e); }
+            } catch (e) { console.warn('Auto-fetch filters failed', e); }
         } else { throw new Error('فشل التحقق من البيانات'); }
     } catch (error: any) { setErrorMessage(error.message); } finally { setIsLoading(false); }
   };
@@ -124,7 +119,6 @@ const MinistrySync: React.FC = () => {
       } catch (error: any) { setErrorMessage('فشل جلب الفصول: ' + error.message); } finally { setIsLoading(false); }
   };
 
-  // --- Absence Submission ---
   const handleSubmitAbsence = async () => {
       if (!session || selectedFilterIndex === -1) { alert('يرجى اختيار الصف والفصل أولاً'); return; }
       const selectedFilter = filtersData[selectedFilterIndex];
@@ -163,7 +157,6 @@ const MinistrySync: React.FC = () => {
       } catch (error: any) { setErrorMessage('فشل الرفع: ' + error.message); } finally { setIsLoading(false); }
   };
 
-  // --- Marks Submission ---
   const handleSubmitMarks = async () => {
       if (!session || selectedFilterIndex === -1) { alert('يرجى اختيار الصف والفصل أولاً'); return; }
       if (!marksConfig.examId || !marksConfig.subjectId) { alert('يرجى إدخال معرف الامتحان والمادة (ExamId, SubjectId)'); return; }
@@ -237,7 +230,7 @@ const MinistrySync: React.FC = () => {
             </div>
          </div>
          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 font-medium">
-             {session ? `مرحباً، المستخدم (ID: ${session.userId})` : 'الاتصال الذكي (Smart Sync)'}
+             {session ? `مرحباً، المستخدم (ID: ${session.userId})` : 'الاتصال الآمن (Secure Sync)'}
          </p>
       </div>
 
@@ -249,7 +242,7 @@ const MinistrySync: React.FC = () => {
                     <div className="w-24 h-24 bg-white dark:bg-[#1C1C1E] rounded-[22px] shadow-sm flex items-center justify-center relative border border-gray-100 dark:border-white/5">
                         <img src="oman_logo.png" className="w-16 opacity-90" alt="MOE" onError={(e) => e.currentTarget.style.display='none'} />
                         <div className="absolute -bottom-3 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-                            <Wifi className="w-3 h-3" /> جاهز للاتصال
+                            <Lock className="w-3 h-3" /> اتصال مشفر
                         </div>
                     </div>
                 </div>
@@ -267,17 +260,8 @@ const MinistrySync: React.FC = () => {
                     
                     {errorMessage && <div className="text-center"><p className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-500/10 py-2 px-4 rounded-lg inline-block whitespace-pre-line" dir="ltr">{errorMessage}</p></div>}
                     
-                    {!Capacitor.isNativePlatform() && (
-                        <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl flex gap-3 items-start border border-amber-200 dark:border-amber-500/20">
-                            <Info className="w-5 h-5 text-amber-500 shrink-0" />
-                            <p className="text-[10px] font-bold text-amber-800 dark:text-amber-200 text-right">
-                                ميزة البحث الذكي مفعلة: سيتم تجربة عدة نقاط اتصال تلقائياً. قد يستغرق الدخول بضع ثوانٍ.
-                            </p>
-                        </div>
-                    )}
-
                     <button type="submit" disabled={isLoading || !username || !password} className="w-full bg-[#007AFF] hover:bg-[#006EDE] disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl py-3.5 text-sm font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
-                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تسجيل الدخول'}
+                        {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> جاري الاتصال...</> : 'تسجيل الدخول'}
                     </button>
                 </form>
              </>
@@ -438,7 +422,7 @@ const MinistrySync: React.FC = () => {
                 className="w-full mb-4 py-2 px-3 rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-2 text-xs font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition-all active:scale-95"
               >
                   {testStatus === 'testing' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Activity className="w-3 h-3 text-indigo-500"/>}
-                  فحص دقيق للرابط (Deep Ping)
+                  فحص الاتصال (Ping)
               </button>
 
               {testMessage && (

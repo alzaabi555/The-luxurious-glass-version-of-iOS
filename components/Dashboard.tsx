@@ -4,7 +4,7 @@ import { Student, ScheduleDay, PeriodTime } from '../types';
 import { 
   Bell, Clock, Edit3, LayoutGrid, Settings, Users, 
   MapPin, School, BookOpen, Camera, Upload, FileSpreadsheet, Loader2, 
-  ChevronLeft, ChevronRight, CalendarCheck, CheckCircle2, XCircle, AlertCircle, Timer
+  ChevronLeft, ChevronRight, CalendarCheck, CheckCircle2, XCircle, AlertCircle, Timer, Stamp
 } from 'lucide-react';
 import Modal from './Modal';
 import { useTheme } from '../context/ThemeContext';
@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 
 interface DashboardProps {
     students: Student[];
-    teacherInfo: { name: string; school: string; subject: string; governorate: string; avatar?: string };
+    teacherInfo: { name: string; school: string; subject: string; governorate: string; avatar?: string; stamp?: string };
     onUpdateTeacherInfo: (info: any) => void;
     schedule: ScheduleDay[];
     onUpdateSchedule: (schedule: ScheduleDay[]) => void;
@@ -40,6 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const { theme } = useTheme();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const stampInputRef = useRef<HTMLInputElement>(null); // Ref for stamp upload
     const scheduleFileInputRef = useRef<HTMLInputElement>(null);
     const [isImportingSchedule, setIsImportingSchedule] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -51,6 +52,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const [editSubject, setEditSubject] = useState(teacherInfo.subject);
     const [editGovernorate, setEditGovernorate] = useState(teacherInfo.governorate);
     const [editAvatar, setEditAvatar] = useState(teacherInfo.avatar || '');
+    const [editStamp, setEditStamp] = useState(teacherInfo.stamp || '');
 
     // State for Schedule/Timing Modal
     const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -65,6 +67,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setEditSubject(teacherInfo.subject);
         setEditGovernorate(teacherInfo.governorate);
         setEditAvatar(teacherInfo.avatar || '');
+        setEditStamp(teacherInfo.stamp || '');
     }, [teacherInfo]);
 
     // Update clock every minute to check for active period
@@ -87,7 +90,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             school: editSchool,
             subject: editSubject,
             governorate: editGovernorate,
-            avatar: editAvatar
+            avatar: editAvatar,
+            stamp: editStamp
         });
         setShowEditModal(false);
     };
@@ -116,6 +120,17 @@ const Dashboard: React.FC<DashboardProps> = ({
             const reader = new FileReader();
             reader.onloadend = () => {
                 setEditAvatar(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setEditStamp(reader.result as string);
             };
             reader.readAsDataURL(file);
         }
@@ -366,20 +381,41 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <h3 className="font-black text-2xl mb-6 text-slate-900 dark:text-white">بيانات المعلم</h3>
                     
                     {/* Avatar Uploader */}
-                    <div className="relative w-28 h-28 mx-auto mb-6 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                        <div className="w-full h-full rounded-[2rem] overflow-hidden border-4 border-white/20 shadow-xl glass-card">
-                            {editAvatar ? (
-                                <img src={editAvatar} className="w-full h-full object-cover" alt="Avatar" />
-                            ) : (
-                                <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-4xl font-black text-white">
-                                    {editName ? editName.charAt(0) : 'T'}
-                                </div>
-                            )}
+                    <div className="flex gap-4 justify-center mb-6">
+                        <div className="relative w-24 h-24 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                            <div className="w-full h-full rounded-[2rem] overflow-hidden border-4 border-white/20 shadow-xl glass-card">
+                                {editAvatar ? (
+                                    <img src={editAvatar} className="w-full h-full object-cover" alt="Avatar" />
+                                ) : (
+                                    <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-3xl font-black text-white">
+                                        {editName ? editName.charAt(0) : 'T'}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem]">
+                                <Camera className="w-6 h-6 text-white" />
+                            </div>
+                            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-white/50 mt-1">الصورة الشخصية</p>
                         </div>
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem]">
-                            <Camera className="w-8 h-8 text-white" />
+
+                        {/* Stamp Uploader */}
+                        <div className="relative w-24 h-24 group cursor-pointer" onClick={() => stampInputRef.current?.click()}>
+                            <div className="w-full h-full rounded-[2rem] overflow-hidden border-4 border-white/20 shadow-xl glass-card flex items-center justify-center bg-white dark:bg-white/10">
+                                {editStamp ? (
+                                    <img src={editStamp} className="w-full h-full object-contain p-2" alt="Stamp" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-slate-300 dark:text-white/30">
+                                        <Stamp className="w-8 h-8 mb-1" />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem]">
+                                <Upload className="w-6 h-6 text-white" />
+                            </div>
+                            <input type="file" ref={stampInputRef} onChange={handleStampUpload} accept="image/*" className="hidden" />
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-white/50 mt-1">ختم المدرسة</p>
                         </div>
-                        <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                     </div>
 
                     <div className="space-y-4">

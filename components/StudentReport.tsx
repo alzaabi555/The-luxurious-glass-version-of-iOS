@@ -14,7 +14,7 @@ interface StudentReportProps {
   student: Student;
   onUpdateStudent?: (s: Student) => void;
   currentSemester?: '1' | '2';
-  teacherInfo?: { name: string; school: string; subject: string; governorate: string };
+  teacherInfo?: { name: string; school: string; subject: string; governorate: string; stamp?: string };
   onBack?: () => void;
 }
 
@@ -130,6 +130,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
       const currentYear = new Date().getFullYear();
       const governorate = teacherInfo?.governorate || '.........';
       let emblemSrc = await getBase64Image('oman_logo.png') || await getBase64Image('icon.png');
+      const stampSrc = teacherInfo?.stamp || ''; // Get Stamp
 
       const element = document.createElement('div');
       element.setAttribute('dir', 'rtl');
@@ -178,9 +179,10 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
             .highlight-data { color: #b45309; font-weight: bold; padding: 0 5px; }
             
             .signatures-row { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 60px 20px 60px; margin-top: auto; }
-            .sig-box { text-align: center; width: 250px; }
+            .sig-box { text-align: center; width: 250px; position: relative; }
             .sig-title { font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: bold; color: #64748b; margin-bottom: 30px; }
             .sig-line { font-family: 'Amiri', serif; font-size: 20px; font-weight: bold; color: #000; border-top: 1px solid #cbd5e1; padding-top: 5px; display: block; }
+            .stamp-img { position: absolute; top: -10px; left: 30px; width: 110px; height: auto; opacity: 0.85; transform: rotate(-10deg); mix-blend-mode: multiply; pointer-events: none; }
         </style>
         <div class="cert-body">
             <div class="frame-border"><div class="frame-corner c-tl"></div><div class="frame-corner c-tr"></div><div class="frame-corner c-bl"></div><div class="frame-corner c-br"></div></div>
@@ -205,7 +207,11 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                 </div>
                 <div class="signatures-row">
                     <div class="sig-box"><div class="sig-title">معلم المادة</div><div class="sig-line">${teacherName}</div></div>
-                    <div class="sig-box"><div class="sig-title">مدير المدرسة</div><div class="sig-line">.........................</div></div>
+                    <div class="sig-box">
+                        <div class="sig-title">مدير المدرسة</div>
+                        <div class="sig-line">.........................</div>
+                        ${stampSrc ? `<img src="${stampSrc}" class="stamp-img" />` : ''}
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -218,6 +224,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
       const teacherName = teacherInfo?.name || '...................';
       const governorate = teacherInfo?.governorate || '.........';
       let emblemSrc = await getBase64Image('oman_logo.png') || await getBase64Image('icon.png');
+      const stampSrc = teacherInfo?.stamp || ''; // Get Stamp
 
       const element = document.createElement('div');
       element.setAttribute('dir', 'rtl');
@@ -241,10 +248,11 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
             .title { text-align: center; font-size: 24px; font-weight: bold; margin: 20px 0; text-decoration: underline; }
             .content { font-size: 18px; line-height: 2.2; text-align: justify; margin-bottom: auto; }
             .footer { margin-top: 30px; display: flex; justify-content: space-between; padding: 0 20px; }
-            .sign-box { text-align: center; width: 200px; }
+            .sign-box { text-align: center; width: 200px; position: relative; }
             .bold { font-weight: bold; }
             .dashed { border-bottom: 1px dashed #000; display: inline-block; min-width: 150px; text-align: center; }
             .ack-box { margin-top: 40px; border-top: 1px dashed #000; padding-top: 20px; font-size: 14px; margin-bottom: 10px;}
+            .stamp-img { position: absolute; top: 10px; left: 10px; width: 100px; height: auto; opacity: 0.85; transform: rotate(-10deg); mix-blend-mode: multiply; pointer-events: none; }
         </style>
         <div class="page-container">
             <div>
@@ -292,6 +300,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                     <div class="sign-box">
                         <p class="bold">إدارة المدرسة</p>
                         <p>.......................</p>
+                        ${stampSrc ? `<img src="${stampSrc}" class="stamp-img" />` : ''}
                     </div>
                 </div>
             </div>
@@ -309,6 +318,8 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
   const handleSaveReport = async () => {
     setIsGeneratingPdf(true);
     let emblemSrc = await getBase64Image('icon.png');
+    const stampSrc = teacherInfo?.stamp || ''; // Get Stamp
+
     const element = document.createElement('div');
     element.setAttribute('dir', 'rtl');
     element.style.fontFamily = 'Tajawal, sans-serif';
@@ -411,7 +422,11 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
       <table style="width: 100%; margin-top: 60px; color: #000000 !important;">
          <tr>
              <td style="text-align: center; width: 50%; vertical-align: top;"><p style="font-weight: bold; margin-bottom: 40px;">معلم المادة</p><p style="font-weight: bold;">${teacherInfo?.name || '.........................'}</p></td>
-             <td style="text-align: center; width: 50%; vertical-align: top;"><p style="font-weight: bold; margin-bottom: 40px;">مدير المدرسة</p><p>.........................</p></td>
+             <td style="text-align: center; width: 50%; vertical-align: top; position: relative;">
+                <p style="font-weight: bold; margin-bottom: 40px;">مدير المدرسة</p>
+                <p>.........................</p>
+                ${stampSrc ? `<img src="${stampSrc}" style="position: absolute; top: 10px; left: 30%; width: 100px; opacity: 0.8; transform: rotate(-10deg); mix-blend-mode: multiply;" />` : ''}
+             </td>
          </tr>
       </table>`;
     exportPDF(element, `تقرير_${student.name}.pdf`, setIsGeneratingPdf);
