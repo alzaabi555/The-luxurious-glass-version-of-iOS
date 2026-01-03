@@ -2,27 +2,70 @@
 import { CapacitorHttp } from '@capacitor/core';
 import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 
-// الرابط الأساسي للخدمة (HTTPS)
-const BASE_URL = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
+// الرابط الافتراضي (يمكن تغييره من الإعدادات)
+const DEFAULT_URL = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
 
 interface ServiceResponse {
     d?: any;
     [key: string]: any;
 }
 
-// User-Agent مخصص للآيفون (iOS Safari) - ضروري جداً لكي يقبل سيرفر الوزارة الطلب
+// User-Agent مخصص للآيفون
 const HEADERS = {
     'Content-Type': 'application/json; charset=UTF-8',
     'Accept': 'application/json',
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
 };
 
+// دالة مساعدة لجلب الرابط الحالي من التخزين
+const getServiceUrl = (): string => {
+    try {
+        const savedUrl = localStorage.getItem('ministry_api_url');
+        // إزالة الشرطة المائلة في النهاية إن وجدت
+        let url = savedUrl || DEFAULT_URL;
+        return url.replace(/\/+$/, '');
+    } catch {
+        return DEFAULT_URL;
+    }
+};
+
 export const ministryService = {
+    /**
+     * اختبار الاتصال بالرابط (Ping)
+     */
+    testConnection: async (url: string): Promise<{ success: boolean; status: number; message: string }> => {
+        // تنظيف الرابط
+        const cleanUrl = url.replace(/\/+$/, '');
+        
+        try {
+            console.log('📡 Testing Connection:', cleanUrl);
+            
+            // نحاول طلب صفحة الخدمة الرئيسية (GET)
+            // عادة ما تعيد ملفات WCF صفحة HTML بوضع 200 عند طلبها بـ GET
+            const response = await CapacitorHttp.get({
+                url: cleanUrl,
+                headers: HEADERS,
+                connectTimeout: 8000,
+                readTimeout: 8000
+            });
+
+            if (response.status === 200) {
+                return { success: true, status: 200, message: 'الاتصال ناجح' };
+            } else {
+                return { success: false, status: response.status, message: `الخادم رد برمز: ${response.status}` };
+            }
+        } catch (error: any) {
+            console.error('❌ Connection Test Failed:', error);
+            return { success: false, status: 0, message: error.message || 'فشل الاتصال بالخادم' };
+        }
+    },
+
     /**
      * تسجيل الدخول
      */
     login: async (username: string, pass: string): Promise<MinistrySession | null> => {
-        const endpoint = `${BASE_URL}/Login`; 
+        const baseUrl = getServiceUrl();
+        const endpoint = `${baseUrl}/Login`; 
         const payload = { USme: username, PPPWZ: pass };
 
         try {
@@ -36,6 +79,10 @@ export const ministryService = {
                 readTimeout: 15000
             });
 
+            if (response.status === 404) {
+                throw new Error(`خطأ 404: الرابط غير صحيح.\nتأكد من إعدادات الخادم.\n(${baseUrl})`);
+            }
+
             if (response.status === 200 || response.status === 201) {
                 const data = response.data as ServiceResponse;
                 const result = data.d !== undefined ? data.d : data;
@@ -45,7 +92,6 @@ export const ministryService = {
                 }
                 
                 if (typeof result === 'object') {
-                    // التحقق من أن الكائن يحتوي على بيانات صالحة
                     if (!result.UserID && !result.id && !result.AuthToken) {
                          throw new Error('استجابة غير متوقعة من السيرفر');
                     }
@@ -68,7 +114,7 @@ export const ministryService = {
             
             let msg = error.message || 'فشل الاتصال';
             if (msg.includes('Failed to fetch') || msg.includes('Load failed')) {
-                msg = 'تعذر الاتصال بالخادم. يرجى التأكد من الإنترنت والمحاولة مرة أخرى.';
+                msg = 'تعذر الاتصال بالخادم. يرجى التأكد من الإنترنت.';
             }
             throw new Error(msg);
         }
@@ -78,7 +124,8 @@ export const ministryService = {
      * جلب الفصول (الفلتر)
      */
     getStudentAbsenceFilter: async (session: MinistrySession) => {
-        const endpoint = `${BASE_URL}/GetStudentAbsenceFilter`; 
+        const baseUrl = getServiceUrl();
+        const endpoint = `${baseUrl}/GetStudentAbsenceFilter`; 
         const payload = {
             userId: session.userId,
             auth: session.auth,
@@ -115,7 +162,8 @@ export const ministryService = {
         gradeId: string,
         date: Date
     ) => {
-        const endpoint = `${BASE_URL}/GetStudentAbsenceDetails`; 
+        const baseUrl = getServiceUrl();
+        const endpoint = `${baseUrl}/GetStudentAbsenceDetails`; 
         const dateStr = date.toISOString().split('T')[0];
 
         const payload = {
@@ -158,7 +206,8 @@ export const ministryService = {
         date: Date,
         details: StdsAbsDetail[]
     ) => {
-        const endpoint = `${BASE_URL}/SubmitStudentAbsenceDetails`;
+        const baseUrl = getServiceUrl();
+        const endpoint = `${baseUrl}/SubmitStudentAbsenceDetails`;
         const dateStr = date.toISOString().split('T')[0];
 
         const payload = {
@@ -210,7 +259,8 @@ export const ministryService = {
         },
         grades: StdsGradeDetail[]
     ) => {
-        const endpoint = `${BASE_URL}/SubmitStudentMarksDetails`;
+        const baseUrl = getServiceUrl();
+        const endpoint = `${baseUrl}/SubmitStudentMarksDetails`;
 
         const payload = {
             userId: session.userId,
