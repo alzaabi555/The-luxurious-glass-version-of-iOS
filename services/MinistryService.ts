@@ -2,17 +2,17 @@
 import { CapacitorHttp } from '@capacitor/core';
 import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 
-// الرابط الافتراضي
+// الرابط الافتراضي (خدمات الهاتف الأساسية - الأفضل للمعلمين)
 const DEFAULT_URL = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
 
-// احتمالات أسماء دوال تسجيل الدخول في أنظمة WCF المختلفة
+// احتمالات أسماء دوال تسجيل الدخول
 const POSSIBLE_LOGIN_ENDPOINTS = [
-    '/Login',
-    '/UserLogin',
-    '/ValidateUser',
+    '/Login',           // (MTletIt) الأكثر شيوعاً للمعلمين - الأولوية الأولى
+    '/UserLogin',       // (PortalMobility) شائع أيضاً
     '/SignIn',
     '/Authenticate',
-    '/GetUserData' // أحياناً يتم الدمج
+    '/ValidateUser',    // (ParentApp) تم نقلها للأسفل كخيار أخير
+    '/GetUserData'
 ];
 
 interface ServiceResponse {
@@ -20,7 +20,7 @@ interface ServiceResponse {
     [key: string]: any;
 }
 
-// User-Agent مخصص
+// User-Agent مخصص ليظهر الطلب وكأنه من هاتف آيفون حقيقي
 const HEADERS = {
     'Content-Type': 'application/json; charset=UTF-8',
     'Accept': 'application/json',
@@ -39,7 +39,7 @@ const getServiceUrl = (): string => {
 
 export const ministryService = {
     /**
-     * فحص ذكي: يحاول عدة مسارات للعثور على المسار الصحيح
+     * فحص ذكي: يحاول عدة مسارات للعثور على المسار الصحيح (Deep Ping)
      */
     testConnection: async (url: string): Promise<{ success: boolean; status: number; message: string; foundEndpoint?: string }> => {
         const cleanUrl = url.replace(/\/+$/, '');
@@ -59,10 +59,11 @@ export const ministryService = {
                     readTimeout: 5000
                 });
 
-                // 404 = الدالة غير موجودة، جرب التالية
+                // 404 = الدالة غير موجودة في هذا السيرفر، جرب التالية
                 if (response.status === 404) continue;
 
-                // 200 أو 500 = السيرفر موجود ورد علينا (حتى لو بخطأ في البيانات)
+                // 200 أو 500 أو 401 = السيرفر موجود ورد علينا (حتى لو بخطأ في البيانات)
+                // وهذا يعني أن الرابط والمسار صحيحان
                 if (response.status === 200 || response.status === 500 || response.status === 401) {
                     return { 
                         success: true, 
@@ -88,10 +89,19 @@ export const ministryService = {
         
         let lastError = null;
 
+        // نحاول استخدام المسار المحفوظ سابقاً لسرعة الاتصال
+        const cachedPath = localStorage.getItem('ministry_login_path');
+        let pathsToTry = POSSIBLE_LOGIN_ENDPOINTS;
+        
+        if (cachedPath) {
+            // نضع المسار المحفوظ في بداية القائمة
+            pathsToTry = [cachedPath, ...POSSIBLE_LOGIN_ENDPOINTS.filter(p => p !== cachedPath)];
+        }
+
         // Loop through possible endpoints
-        for (const path of POSSIBLE_LOGIN_ENDPOINTS) {
+        for (const path of pathsToTry) {
             const endpoint = `${baseUrl}${path}`;
-            console.log(`📡 Trying endpoint: ${path}`);
+            console.log(`📡 Trying endpoint: ${endpoint}`);
 
             try {
                 const response = await CapacitorHttp.post({
@@ -108,8 +118,10 @@ export const ministryService = {
                 // إذا وصلنا هنا، السيرفر رد بشيء غير 404
                 if (response.status === 200 || response.status === 201) {
                     const data = response.data as ServiceResponse;
+                    // قد تكون الاستجابة مباشرة أو مغلفة بـ d
                     const result = data.d !== undefined ? data.d : data;
                     
+                    // تحقق من رسائل الخطأ النصية من السيرفر
                     if (typeof result === 'string') {
                          if (result.toLowerCase().includes('error') || result.toLowerCase().includes('fail')) {
                              throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
@@ -117,12 +129,14 @@ export const ministryService = {
                     }
                     
                     if (typeof result === 'object') {
-                        // نجحنا! نحفظ المسار الصحيح لاستخدامه لاحقاً (تحسين الأداء مستقبلاً)
-                        localStorage.setItem('ministry_login_path', path);
-
-                        if (!result.UserID && !result.id && !result.AuthToken) {
+                        // التحقق من نجاح الدخول بوجود معرف المستخدم أو التوكن
+                        if (!result.UserID && !result.id && !result.AuthToken && !result.token) {
+                             // قد تكون استجابة 200 لكن الدخول فشل (منطق السيرفر)
                              throw new Error('بيانات الدخول غير صحيحة');
                         }
+
+                        // نجحنا! نحفظ المسار الصحيح لاستخدامه لاحقاً (تحسين الأداء مستقبلاً)
+                        localStorage.setItem('ministry_login_path', path);
 
                         return {
                             userId: result.UserID || result.id || '0',
@@ -137,17 +151,20 @@ export const ministryService = {
                 }
             } catch (error: any) {
                 lastError = error;
-                // إذا كان الخطأ "فشل اتصال" (Network Error)، نتوقف ولا نكمل الدوران لأن النت مقطوع
+                // إذا كان الخطأ "فشل اتصال" (Network Error)، نتوقف ولا نكمل الدوران لأن النت مقطوع غالباً
                 if (error.message && (error.message.includes('Network') || error.message.includes('Failed to fetch'))) {
                     throw error;
                 }
-                // أخطاء أخرى (مثل 500) نعتبرها فشل في هذا المسار ونكمل
+                // أخطاء أخرى (مثل 500 أو كلمة مرور خطأ) نعتبرها فشل في هذا المسار ونكمل أو نرمي الخطأ
+                if (error.message === 'اسم المستخدم أو كلمة المرور غير صحيحة') {
+                    throw error;
+                }
             }
         }
 
         // إذا انتهت الحلقة ولم ننجح
         if (lastError) throw lastError;
-        throw new Error('لم يتم العثور على خدمة الدخول في هذا الرابط. تأكد من الإعدادات.');
+        throw new Error('لم يتم العثور على خدمة الدخول في هذا الرابط. تأكد من صحة الرابط في الإعدادات.');
     },
 
     /**
@@ -156,7 +173,7 @@ export const ministryService = {
     getStudentAbsenceFilter: async (session: MinistrySession) => {
         const baseUrl = getServiceUrl();
         // محاولة مسارات شائعة للفلتر أيضاً
-        const endpoints = ['/GetStudentAbsenceFilter', '/GetClasses', '/TeacherClasses'];
+        const endpoints = ['/GetStudentAbsenceFilter', '/GetClasses', '/TeacherClasses', '/GetTeacherClasses'];
         
         for (const path of endpoints) {
             try {
