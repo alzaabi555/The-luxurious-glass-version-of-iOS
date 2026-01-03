@@ -1,11 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info, Link as LinkIcon, Check, X, RefreshCw, Activity } from 'lucide-react';
+import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info, Link as LinkIcon, Check, X, RefreshCw, Activity, ArrowDownCircle } from 'lucide-react';
 import { ministryService } from '../services/MinistryService';
 import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 import { useApp } from '../context/AppContext';
 import { Capacitor } from '@capacitor/core';
 import Modal from './Modal';
+
+// Known MOE Service URLs
+const URL_PRESETS = [
+    { name: 'الافتراضي (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
+    { name: 'بوابة الهاتف (PortalMobility)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/PortalMobility.svc' },
+    { name: 'خدمات المعلم (TeacherServices)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/TeacherServices.svc' },
+    { name: 'عام (MobileServices)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MobileServices.svc' }
+];
 
 const MinistrySync: React.FC = () => {
   const { students, assessmentTools } = useApp();
@@ -46,7 +54,7 @@ const MinistrySync: React.FC = () => {
   useEffect(() => {
       // Load current URL setting
       const saved = localStorage.getItem('ministry_api_url');
-      setCustomApiUrl(saved || 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc');
+      setCustomApiUrl(saved || URL_PRESETS[0].url);
   }, []);
 
   useEffect(() => {
@@ -64,10 +72,10 @@ const MinistrySync: React.FC = () => {
       
       if (result.success) {
           setTestStatus('success');
-          setTestMessage('✅ تم الاتصال بنجاح (200 OK)');
+          setTestMessage(result.message);
       } else {
           setTestStatus('failed');
-          setTestMessage(`❌ فشل الاتصال: ${result.message}`);
+          setTestMessage(result.message);
       }
   };
 
@@ -80,7 +88,7 @@ const MinistrySync: React.FC = () => {
   };
 
   const handleResetSettings = () => {
-      const defaultUrl = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
+      const defaultUrl = URL_PRESETS[0].url;
       setCustomApiUrl(defaultUrl);
       localStorage.removeItem('ministry_api_url');
       alert('تم استعادة الرابط الافتراضي');
@@ -404,8 +412,21 @@ const MinistrySync: React.FC = () => {
       <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} className="max-w-sm rounded-[2rem]">
           <div className="text-center">
               <h3 className="font-black text-lg text-slate-900 dark:text-white mb-2">إعدادات الخادم</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">قم بتغيير هذا الرابط فقط في حالة ظهور خطأ 404 أو تغيير في سيرفرات الوزارة.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">قم بتغيير هذا الرابط في حالة ظهور خطأ 404.</p>
               
+              <div className="space-y-3 mb-6">
+                  {URL_PRESETS.map((preset, idx) => (
+                      <button 
+                        key={idx}
+                        onClick={() => { setCustomApiUrl(preset.url); }}
+                        className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center justify-between group transition-all ${customApiUrl === preset.url ? 'bg-blue-600 text-white border-blue-500 shadow-md' : 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-slate-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                      >
+                          <span>{preset.name}</span>
+                          {customApiUrl === preset.url && <Check className="w-4 h-4" />}
+                      </button>
+                  ))}
+              </div>
+
               <div className="relative mb-4">
                   <LinkIcon className="absolute top-3 right-3 w-4 h-4 text-gray-400" />
                   <input 
@@ -425,12 +446,12 @@ const MinistrySync: React.FC = () => {
                 className="w-full mb-4 py-2 px-3 rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-2 text-xs font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition-all active:scale-95"
               >
                   {testStatus === 'testing' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Activity className="w-3 h-3 text-indigo-500"/>}
-                  فحص الاتصال (Test URL)
+                  فحص دقيق للرابط (Deep Ping)
               </button>
 
               {/* Test Result Message */}
               {testMessage && (
-                  <div className={`text-[10px] font-bold py-2 mb-4 rounded-lg ${testStatus === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  <div className={`text-[10px] font-bold py-2 mb-4 rounded-lg ${testStatus === 'success' || testStatus === 'idle' && testMessage.includes('500') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                       {testMessage}
                   </div>
               )}
