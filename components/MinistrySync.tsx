@@ -1,76 +1,367 @@
 
-import React from 'react';
-import { ExternalLink, Building2, Lock, ShieldCheck, ChevronRight, Smartphone } from 'lucide-react';
-import { Browser } from '@capacitor/browser';
+import React, { useState } from 'react';
+import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info } from 'lucide-react';
+import { ministryService } from '../services/MinistryService';
+import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
+import { useApp } from '../context/AppContext';
 import { Capacitor } from '@capacitor/core';
 
 const MinistrySync: React.FC = () => {
-  const url = "https://certificate.moe.gov.om/Portal/Services/UserLoginnew.aspx";
+  const { students, assessmentTools } = useApp();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [session, setSession] = useState<MinistrySession | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleOpenPlatform = async () => {
-    if (Capacitor.isNativePlatform()) {
-        await Browser.open({ url: url, presentationStyle: 'fullscreen' });
-    } else {
-        window.open(url, '_blank');
+  // Tabs: 'absence' | 'marks'
+  const [activeTab, setActiveTab] = useState<'absence' | 'marks'>('absence');
+
+  // --- Common Data ---
+  const [filtersData, setFiltersData] = useState<any[]>([]);
+  const [selectedFilterIndex, setSelectedFilterIndex] = useState<number>(-1);
+
+  // --- Absence State ---
+  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // --- Marks State ---
+  const [marksConfig, setMarksConfig] = useState({
+      termId: '1', // 1 or 2
+      subjectId: '', // To be entered manually or fetched if possible
+      examId: '', // To be entered manually
+      examGradeType: 1,
+      eduSysId: '1',
+      stageId: '0', // Often 0 or needs to be fetched
+  });
+  const [selectedLocalTool, setSelectedLocalTool] = useState<string>(''); // Which local assessment tool to push
+
+  // --- Auth & Filters Logic ---
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username || !password) return;
+    setIsLoading(true);
+    setErrorMessage('');
+    
+    // Warning for web users
+    if (!Capacitor.isNativePlatform()) {
+        console.warn('Ministry Login might fail on Web due to CORS. Use a device/emulator.');
     }
+
+    try {
+        const result = await ministryService.login(username, password);
+        if (result) {
+            setSession(result);
+            try {
+                const filters = await ministryService.getStudentAbsenceFilter(result);
+                if (Array.isArray(filters)) setFiltersData(filters);
+                else if (filters && typeof filters === 'object') setFiltersData([filters]);
+            } catch (e) { console.warn('Could not auto-fetch filters', e); }
+        } else { throw new Error('فشل التحقق من البيانات'); }
+    } catch (error: any) { setErrorMessage(error.message); } finally { setIsLoading(false); }
+  };
+
+  const handleFetchFilters = async () => {
+      if (!session) return;
+      setIsLoading(true);
+      try {
+          const result = await ministryService.getStudentAbsenceFilter(session);
+          if (Array.isArray(result)) setFiltersData(result);
+          else setFiltersData([]);
+      } catch (error: any) { setErrorMessage('فشل جلب الفصول: ' + error.message); } finally { setIsLoading(false); }
+  };
+
+  // --- Absence Submission ---
+  const handleSubmitAbsence = async () => {
+      if (!session || selectedFilterIndex === -1) { alert('يرجى اختيار الصف والفصل أولاً'); return; }
+      const selectedFilter = filtersData[selectedFilterIndex];
+      const classId = selectedFilter.ClassId || selectedFilter.Id || "0";
+      const gradeId = selectedFilter.GradeId || "0";
+      const className = selectedFilter.ClassName || selectedFilter.Name || "";
+
+      const localStudentsInClass = students.filter(s => s.classes.includes(className) || s.grade === gradeId);
+      if (localStudentsInClass.length === 0) {
+          if(!confirm(`لم يتم العثور على طلاب محليين في الفصل "${className}". متابعة؟`)) return;
+      }
+
+      setIsLoading(true);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      try {
+          const absDetails: StdsAbsDetail[] = [];
+          localStudentsInClass.forEach(student => {
+              const attendance = student.attendance.find(a => a.date === targetDate);
+              if (attendance && attendance.status !== 'present') {
+                  let absType = 0;
+                  if (attendance.status === 'absent') absType = 1;
+                  else if (attendance.status === 'late') absType = 2;
+                  else if (attendance.status === 'truant') absType = 3;
+                  absDetails.push({
+                      StudentId: student.ministryId || student.id,
+                      AbsenceType: absType,
+                      Notes: 'عبر راصد'
+                  });
+              }
+          });
+
+          await ministryService.submitStudentAbsenceDetails(session, classId, gradeId, new Date(targetDate), absDetails);
+          setSuccessMessage('تم رفع الغياب بنجاح! ✅');
+      } catch (error: any) { setErrorMessage('فشل الرفع: ' + error.message); } finally { setIsLoading(false); }
+  };
+
+  // --- Marks Submission ---
+  const handleSubmitMarks = async () => {
+      if (!session || selectedFilterIndex === -1) { alert('يرجى اختيار الصف والفصل أولاً'); return; }
+      if (!marksConfig.examId || !marksConfig.subjectId) { alert('يرجى إدخال معرف الامتحان والمادة (ExamId, SubjectId)'); return; }
+      if (!selectedLocalTool) { alert('يرجى اختيار أداة التقويم المحلية المراد رفع درجاتها'); return; }
+
+      const selectedFilter = filtersData[selectedFilterIndex];
+      const classId = selectedFilter.ClassId || selectedFilter.Id || "0";
+      const gradeId = selectedFilter.GradeId || "0";
+      const className = selectedFilter.ClassName || selectedFilter.Name || "";
+
+      // Get local students
+      const localStudentsInClass = students.filter(s => s.classes.includes(className) || s.grade === gradeId);
+      if (localStudentsInClass.length === 0) { alert('لا يوجد طلاب محليين مطابقين لهذا الفصل'); return; }
+
+      setIsLoading(true);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      try {
+          const gradeDetails: StdsGradeDetail[] = [];
+          const toolName = assessmentTools.find(t => t.id === selectedLocalTool)?.name;
+
+          localStudentsInClass.forEach(student => {
+              // Find grade for this student, tool, and term
+              const gradeRecord = student.grades?.find(g => 
+                  g.category.trim() === toolName?.trim() && 
+                  (g.semester || '1') === marksConfig.termId
+              );
+
+              if (gradeRecord) {
+                  gradeDetails.push({
+                      StudentId: student.ministryId || student.id,
+                      MarkValue: gradeRecord.score.toString(),
+                      IsAbsent: false,
+                      Notes: 'عبر راصد'
+                  });
+              }
+          });
+
+          if (gradeDetails.length === 0) {
+              throw new Error('لا توجد درجات مرصودة محلياً لهذه الأداة في هذا الفصل');
+          }
+
+          const result = await ministryService.submitStudentMarksDetails(
+              session,
+              {
+                  classId,
+                  gradeId,
+                  ...marksConfig
+              },
+              gradeDetails
+          );
+
+          setSuccessMessage('تم رفع الدرجات بنجاح! ✅');
+          console.log(result);
+
+      } catch (error: any) {
+          setErrorMessage('فشل رفع الدرجات: ' + error.message);
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   return (
-    <div className="flex flex-col h-full glass-heavy rounded-[2.5rem] overflow-hidden shadow-2xl relative animate-in fade-in duration-500 border border-white/20">
+    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black rounded-[2.5rem] overflow-hidden shadow-2xl relative border border-white/20">
       
-      {/* Decorative Header */}
-      <div className="p-8 flex flex-col items-center justify-center text-center border-b border-white/10 bg-white/5 backdrop-blur-md">
-         <div className="w-24 h-24 glass-icon rounded-[2rem] flex items-center justify-center relative shadow-xl shadow-emerald-500/10 mb-6 border border-white/20">
-            <Building2 className="w-10 h-10 text-emerald-500" />
-            <div className="absolute -bottom-2 -right-2 bg-blue-500 p-2 rounded-xl border-2 border-white/10 shadow-lg">
-                <Lock className="w-4 h-4 text-white" />
+      {/* Header */}
+      <div className="pt-8 pb-4 px-6 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10 sticky top-0 z-10">
+         <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">بوابة الوزارة</h2>
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <Building2 className="w-4 h-4 text-white" />
             </div>
          </div>
-         
-         <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2 text-glow">البوابة التعليمية</h2>
-         <p className="text-xs font-bold text-slate-500 dark:text-white/60 max-w-[280px] leading-relaxed">
-            تسجيل الدخول - وزارة التربية والتعليم
+         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 font-medium">
+             {session ? `مرحباً، المعلم (ID: ${session.userId})` : 'تسجيل الدخول للنظام التعليمي'}
          </p>
       </div>
 
-      {/* Action Section */}
-      <div className="flex-1 p-6 flex flex-col items-center justify-center space-y-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
          
-         <div className="glass-card p-4 rounded-2xl border border-amber-500/20 w-full bg-amber-500/10">
-            <div className="flex gap-3 items-start">
-               <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-               <p className="text-[10px] font-bold text-amber-100/90 leading-relaxed text-right">
-                  سيتم فتح صفحة تسجيل الدخول في نافذة آمنة. 
-                  <br/>
-                  للعودة للتطبيق، استخدم زر <strong>"Done"</strong> أو <strong>"إغلاق"</strong>.
-               </p>
-            </div>
-         </div>
+         {!session ? (
+             <>
+                <div className="flex justify-center mb-8 mt-4">
+                    <div className="w-24 h-24 bg-white dark:bg-[#1C1C1E] rounded-[22px] shadow-sm flex items-center justify-center relative border border-gray-100 dark:border-white/5">
+                        <img src="oman_logo.png" className="w-16 opacity-90" alt="MOE" onError={(e) => e.currentTarget.style.display='none'} />
+                        <div className="absolute -bottom-3 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                            <Wifi className="w-3 h-3" /> متصل
+                        </div>
+                    </div>
+                </div>
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-white/5">
+                        <div className="flex items-center px-4 py-1 border-b border-gray-100 dark:border-white/5">
+                            <User className="w-5 h-5 text-gray-400 shrink-0" />
+                            <input type="text" placeholder="اسم المستخدم (USme)" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full py-3.5 px-3 bg-transparent text-sm font-medium text-black dark:text-white placeholder:text-gray-400 outline-none" dir="ltr" />
+                        </div>
+                        <div className="flex items-center px-4 py-1">
+                            <Key className="w-5 h-5 text-gray-400 shrink-0" />
+                            <input type="password" placeholder="كلمة المرور (PPPWZ)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full py-3.5 px-3 bg-transparent text-sm font-medium text-black dark:text-white placeholder:text-gray-400 outline-none" dir="ltr" />
+                        </div>
+                    </div>
+                    
+                    {errorMessage && <div className="text-center"><p className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-500/10 py-2 px-4 rounded-lg inline-block">{errorMessage}</p></div>}
+                    
+                    {!Capacitor.isNativePlatform() && (
+                        <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl flex gap-3 items-start border border-amber-200 dark:border-amber-500/20">
+                            <Info className="w-5 h-5 text-amber-500 shrink-0" />
+                            <p className="text-[10px] font-bold text-amber-800 dark:text-amber-200 text-right">
+                                تنبيه: تسجيل الدخول قد يفشل على المتصفح بسبب سياسات الأمان (CORS). يرجى تجربة الميزة على التطبيق الفعلي في الهاتف.
+                            </p>
+                        </div>
+                    )}
 
-         <button 
-            onClick={handleOpenPlatform}
-            className="group w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl p-3 pl-4 flex items-center transition-all shadow-xl shadow-emerald-500/30 active:scale-95 border border-emerald-400/50"
-         >
-            <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                <ExternalLink className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1 text-right pr-4">
-                <span className="block text-sm font-black">الدخول للبوابة</span>
-                <span className="block text-[9px] font-bold text-emerald-200">certificate.moe.gov.om</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-emerald-200" />
-         </button>
+                    <button type="submit" disabled={isLoading || !username || !password} className="w-full bg-[#007AFF] hover:bg-[#006EDE] disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl py-3.5 text-sm font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تسجيل الدخول'}
+                    </button>
+                </form>
+             </>
+         ) : (
+             <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                 {/* Session Status */}
+                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
+                     <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+                         <ShieldCheck className="w-6 h-6" />
+                     </div>
+                     <div>
+                         <h3 className="font-bold text-slate-900 dark:text-white text-sm">الجلسة نشطة</h3>
+                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">تم الاتصال بقاعدة بيانات الوزارة</p>
+                     </div>
+                 </div>
+
+                 {/* Tab Switcher */}
+                 <div className="flex bg-gray-200 dark:bg-white/10 p-1 rounded-xl">
+                     <button onClick={() => setActiveTab('absence')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'absence' ? 'bg-white dark:bg-gray-800 shadow text-black dark:text-white' : 'text-gray-500'}`}>رصد الغياب</button>
+                     <button onClick={() => setActiveTab('marks')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'marks' ? 'bg-white dark:bg-gray-800 shadow text-black dark:text-white' : 'text-gray-500'}`}>رصد الدرجات</button>
+                 </div>
+
+                 {/* Filters Selection (Common) */}
+                 <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-white/5">
+                     <div className="flex items-center justify-between mb-4">
+                         <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2">
+                             <LayoutList className="w-4 h-4 text-purple-500" />
+                             الفصول الدراسية
+                         </h3>
+                         <button onClick={handleFetchFilters} disabled={isLoading} className="text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-500/10 px-3 py-1 rounded-full">تحديث</button>
+                     </div>
+                     {filtersData.length > 0 ? (
+                         <div className="grid grid-cols-2 gap-2 mb-4">
+                             {filtersData.map((item, idx) => (
+                                 <button key={idx} onClick={() => setSelectedFilterIndex(idx)} className={`p-3 rounded-xl border text-right transition-all ${selectedFilterIndex === idx ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10'}`}>
+                                     <span className="block text-xs font-bold">{item.ClassName || item.Name || `فصل ${idx+1}`}</span>
+                                     <span className="text-[9px] opacity-70">{item.GradeName || ''}</span>
+                                 </button>
+                             ))}
+                         </div>
+                     ) : (
+                         <div className="text-center py-4 text-gray-400 text-xs font-bold border-2 border-dashed border-gray-200 dark:border-white/10 rounded-xl mb-4">لم يتم جلب الفصول بعد</div>
+                     )}
+                 </div>
+
+                 {/* --- ABSENCE MODE --- */}
+                 {activeTab === 'absence' && (
+                     <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-white/5 animate-in fade-in">
+                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                             <UploadCloud className="w-4 h-4 text-blue-500" />
+                             رفع الغياب (SubmitStudentAbsence)
+                         </h3>
+                         <div className="space-y-3">
+                             <div className="relative">
+                                 <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-blue-500" />
+                                 <Calendar className="absolute left-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                             </div>
+                             {selectedFilterIndex === -1 && <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3" /> يرجى اختيار فصل من القائمة أعلاه</p>}
+                             <button onClick={handleSubmitAbsence} disabled={isLoading || selectedFilterIndex === -1} className="w-full bg-slate-900 dark:bg-white text-white dark:text-black py-3 rounded-xl font-black text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg">
+                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : 'رفع الغياب للسيرفر'}
+                             </button>
+                         </div>
+                     </div>
+                 )}
+
+                 {/* --- MARKS MODE --- */}
+                 {activeTab === 'marks' && (
+                     <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-white/5 animate-in fade-in">
+                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                             <BarChart3 className="w-4 h-4 text-emerald-500" />
+                             رفع الدرجات (SubmitMarks)
+                         </h3>
+                         
+                         {/* Configuration Inputs */}
+                         <div className="space-y-3 mb-4">
+                             <div className="flex gap-2">
+                                 <div className="flex-1">
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">Subject ID (المادة)</label>
+                                     <input type="text" placeholder="مثال: 101" value={marksConfig.subjectId} onChange={e => setMarksConfig({...marksConfig, subjectId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none" />
+                                 </div>
+                                 <div className="flex-1">
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">Exam ID (الاختبار)</label>
+                                     <input type="text" placeholder="مثال: 5543" value={marksConfig.examId} onChange={e => setMarksConfig({...marksConfig, examId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none" />
+                                 </div>
+                             </div>
+                             
+                             <div className="flex gap-2">
+                                 <div className="flex-1">
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">الفصل الدراسي</label>
+                                     <select value={marksConfig.termId} onChange={e => setMarksConfig({...marksConfig, termId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-2 py-2 text-xs font-bold outline-none">
+                                         <option value="1">فصل 1</option>
+                                         <option value="2">فصل 2</option>
+                                     </select>
+                                 </div>
+                                 <div className="flex-[2]">
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">الأداة المحلية (لأخذ الدرجات منها)</label>
+                                     <select value={selectedLocalTool} onChange={e => setSelectedLocalTool(e.target.value)} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-2 py-2 text-xs font-bold outline-none">
+                                         <option value="">اختر الأداة...</option>
+                                         {assessmentTools.map(tool => (
+                                             <option key={tool.id} value={tool.id}>{tool.name}</option>
+                                         ))}
+                                     </select>
+                                 </div>
+                             </div>
+                             
+                             {/* Advanced / Optional Fields Toggle (Implied) */}
+                             <div className="flex gap-2">
+                                 <div className="flex-1">
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">Stage ID</label>
+                                     <input type="text" value={marksConfig.stageId} onChange={e => setMarksConfig({...marksConfig, stageId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none" />
+                                 </div>
+                                 <div className="flex-1">
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">EduSys ID</label>
+                                     <input type="text" value={marksConfig.eduSysId} onChange={e => setMarksConfig({...marksConfig, eduSysId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none" />
+                                 </div>
+                             </div>
+                         </div>
+
+                         {selectedFilterIndex === -1 && <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mb-2"><AlertCircle className="w-3 h-3" /> يرجى اختيار فصل من القائمة أعلاه</p>}
+                         
+                         <button onClick={handleSubmitMarks} disabled={isLoading || selectedFilterIndex === -1 || !selectedLocalTool} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-black text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg">
+                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : 'رفع الدرجات للسيرفر'}
+                         </button>
+                     </div>
+                 )}
+
+                 {/* Result Messages */}
+                 {successMessage && <div className="mt-4 p-3 bg-emerald-500/10 text-emerald-600 rounded-xl text-xs font-bold text-center border border-emerald-500/20">{successMessage}</div>}
+                 {errorMessage && <div className="mt-4 p-3 bg-red-500/10 text-red-600 rounded-xl text-xs font-bold text-center border border-red-500/20">{errorMessage}</div>}
+
+                 <button onClick={() => setSession(null)} className="w-full py-3 text-red-500 font-bold text-xs hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors">تسجيل الخروج</button>
+             </div>
+         )}
 
       </div>
-      
-      {/* Footer */}
-      <div className="p-4 text-center border-t border-white/5">
-         <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 flex items-center justify-center gap-1">
-            <Smartphone className="w-3 h-3" />
-            متصفح داخلي محسن
-         </p>
-      </div>
-
     </div>
   );
 };

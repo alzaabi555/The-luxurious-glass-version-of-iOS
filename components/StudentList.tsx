@@ -162,8 +162,6 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
           // Record as Truant in Attendance
           const today = new Date().toLocaleDateString('en-CA');
           const filteredAttendance = student.attendance.filter(a => a.date !== today);
-          // If already truant, maybe toggle off? But usually we want to set it.
-          // For now, force set to truant.
           const updatedStudent = {
               ...student,
               attendance: [...filteredAttendance, { date: today, status: 'truant' as const }]
@@ -256,11 +254,21 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
       const msg = encodeURIComponent(`السلام عليكم، نود إشعاركم بأن الطالب ${student.name} قام بسلوك: *${statusText}* اليوم (${dateText}). نرجو متابعة الأمر.`);
       
       if (method === 'whatsapp') {
-          const universalUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`;
-          try {
-              if (Capacitor.isNativePlatform()) await Browser.open({ url: universalUrl });
-              else window.open(universalUrl, '_blank');
-          } catch (e) { window.open(universalUrl, '_blank'); }
+          // ============================================================
+          // 🔥 الحل النووي (Windows Nuclear Solution) 🔥
+          // ============================================================
+          // هذا الكود يتأكد إذا كنا في بيئة إلكترون (ويندوز) ويستخدم الجسر
+          // لفتح واتساب مباشرة، وإذا كنا في الويب/موبايل يستخدم الطريقة العادية
+          if (window.electron && window.electron.openExternal) {
+              window.electron.openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
+          } else {
+              // Android / iOS / Web
+              const universalUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`;
+              try {
+                  if (Capacitor.isNativePlatform()) await Browser.open({ url: universalUrl });
+                  else window.open(universalUrl, '_blank');
+              } catch (e) { window.open(universalUrl, '_blank'); }
+          }
       } else {
           window.location.href = `sms:${cleanPhone}?body=${msg}`;
       }
