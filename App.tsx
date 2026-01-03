@@ -10,6 +10,7 @@ import GroupCompetition from './components/GroupCompetition';
 import UserGuide from './components/UserGuide';
 import About from './components/About';
 import Settings from './components/Settings';
+import MinistrySync from './components/MinistrySync'; // Import MinistrySync
 import BrandLogo from './components/BrandLogo';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
@@ -17,7 +18,7 @@ import { useSchoolBell } from './hooks/useSchoolBell';
 import { 
   LayoutDashboard, Users, CalendarCheck, BarChart3, FileText, 
   Trophy, HelpCircle, Info, 
-  Menu, X, Moon, Sun, Zap, Settings as SettingsIcon, MoreHorizontal, Grid
+  Menu, X, Moon, Sun, Zap, Settings as SettingsIcon, MoreHorizontal, Grid, Building2 // Import Building2 icon
 } from 'lucide-react';
 import Modal from './components/Modal';
 
@@ -170,6 +171,7 @@ const AppContent: React.FC = () => {
           if (selectedStudentForReport) return <StudentReport student={selectedStudentForReport} onUpdateStudent={handleUpdateStudent} currentSemester={currentSemester} teacherInfo={teacherInfo} onBack={() => setSelectedStudentForReport(null)} />;
           return <StudentList students={students} classes={classes} onAddClass={handleAddClass} onAddStudentManually={handleAddStudentManually} onBatchAddStudents={handleBatchAddStudents} onUpdateStudent={handleUpdateStudent} onDeleteStudent={handleDeleteStudent} onViewReport={(s) => { setSelectedStudentForReport(s); setActiveTab('report'); }} currentSemester={currentSemester} onSemesterChange={setCurrentSemester} onEditClass={handleEditClass} onDeleteClass={handleDeleteClass} />;
       }
+      if (activeTab === 'ministry') return <MinistrySync />;
       if (activeTab === 'settings') return <Settings />;
       if (activeTab === 'guide') return <UserGuide />;
       if (activeTab === 'about') return <About />;
@@ -188,6 +190,7 @@ const AppContent: React.FC = () => {
   // Secondary items (In "More" menu)
   const secondaryNavItems = [
       { id: 'groups', label: 'المنافسة', icon: Trophy },
+      { id: 'ministry', label: 'بوابة الوزارة', icon: Building2 }, // Added Ministry
       { id: 'settings', label: 'البيانات', icon: SettingsIcon },
       { id: 'guide', label: 'الدليل', icon: HelpCircle },
       { id: 'about', label: 'حول', icon: Info },
@@ -197,7 +200,8 @@ const AppContent: React.FC = () => {
   const sidebarNavItems = [...mainNavItems, ...secondaryNavItems];
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans text-slate-900 dark:text-white ${isLowPower ? 'low-power' : ''}`}>
+    // استخدام h-[100dvh] بدلاً من h-screen لتفادي مشاكل شريط العنوان في سفاري
+    <div className={`flex h-[100dvh] overflow-hidden font-sans text-slate-900 dark:text-white ${isLowPower ? 'low-power' : ''}`}>
         
         {/* --- DESKTOP SIDEBAR (Hidden on Mobile) --- */}
         <aside className="hidden md:flex flex-col w-64 h-full p-4 shrink-0 relative z-50">
@@ -244,8 +248,12 @@ const AppContent: React.FC = () => {
         {/* --- MAIN CONTENT --- */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative h-full">
             
-            {/* Mobile Header (Minimal) */}
-            <div className="md:hidden pt-4 px-4 pb-0 flex justify-between items-center z-30">
+            {/* Mobile Header (Safe Area Optimized) */}
+            {/* استخدام pt-[max(1rem,env(safe-area-inset-top))] لضمان عدم تغطية النوتش */}
+            <div 
+                className="md:hidden px-4 pb-2 flex justify-between items-center z-30 transition-all"
+                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}
+            >
                 <div className="flex items-center gap-2">
                     <BrandLogo className="w-8 h-8" showText={false} />
                     <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight">راصد</span>
@@ -261,7 +269,10 @@ const AppContent: React.FC = () => {
             </div>
 
             {/* --- IPHONE BOTTOM BAR (Mobile Only) --- */}
-            <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
+            <div 
+                className="md:hidden fixed bottom-6 left-4 right-4 z-50"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
                 <div className="glass-heavy rounded-[2rem] p-1.5 flex justify-between items-center shadow-2xl border border-white/20 backdrop-blur-xl relative">
                     {mainNavItems.map(item => (
                         <button
@@ -280,7 +291,7 @@ const AppContent: React.FC = () => {
                     {/* More Button */}
                     <button
                         onClick={() => setShowMoreMenu(true)}
-                        className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[1.5rem] transition-all duration-300 ${['groups', 'settings', 'guide', 'about'].includes(activeTab) ? 'text-indigo-600 dark:text-white bg-white/10' : 'text-slate-400 dark:text-white/40'}`}
+                        className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[1.5rem] transition-all duration-300 ${['groups', 'settings', 'guide', 'about', 'ministry'].includes(activeTab) ? 'text-indigo-600 dark:text-white bg-white/10' : 'text-slate-400 dark:text-white/40'}`}
                     >
                         <Grid className="w-6 h-6 mb-0.5" />
                         <span className="text-[9px] font-black">المزيد</span>

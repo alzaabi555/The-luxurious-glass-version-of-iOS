@@ -1,3 +1,4 @@
+
 {
   "appId": "com.madrasati.app",
   "appName": "راصد",
@@ -23,7 +24,7 @@
     "backgroundColor": "#f2f2f7"
   },
   "ios": {
-    "contentInset": "always",
+    "contentInset": "automatic",
     "backgroundColor": "#f2f2f7",
     "allowsBackForwardNavigationGestures": true
   }
