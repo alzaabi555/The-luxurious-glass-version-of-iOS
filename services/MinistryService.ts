@@ -2,7 +2,7 @@
 import { CapacitorHttp } from '@capacitor/core';
 import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 
-// الرابط الافتراضي (يمكن تغييره من الإعدادات)
+// الرابط الافتراضي
 const DEFAULT_URL = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
 
 interface ServiceResponse {
@@ -31,28 +31,37 @@ const getServiceUrl = (): string => {
 
 export const ministryService = {
     /**
-     * اختبار الاتصال بالرابط (Ping)
+     * اختبار الاتصال بالرابط (Ping Deep Probe)
+     * يحاول الاتصال بـ Login مباشرة للتأكد من وجود الخدمة
      */
     testConnection: async (url: string): Promise<{ success: boolean; status: number; message: string }> => {
         // تنظيف الرابط
         const cleanUrl = url.replace(/\/+$/, '');
+        const endpoint = `${cleanUrl}/Login`;
         
         try {
-            console.log('📡 Testing Connection:', cleanUrl);
+            console.log('📡 Testing Endpoint:', endpoint);
             
-            // نحاول طلب صفحة الخدمة الرئيسية (GET)
-            // عادة ما تعيد ملفات WCF صفحة HTML بوضع 200 عند طلبها بـ GET
-            const response = await CapacitorHttp.get({
-                url: cleanUrl,
+            // نرسل بيانات وهمية. إذا رد السيرفر بـ "فشل الدخول" أو بيانات فارغة، فهذا يعني أن الرابط صحيح!
+            // إذا رد بـ 404، يعني الرابط خطأ.
+            const response = await CapacitorHttp.post({
+                url: endpoint,
                 headers: HEADERS,
-                connectTimeout: 8000,
-                readTimeout: 8000
+                data: { USme: "test_ping", PPPWZ: "test_ping" }, // بيانات وهمية
+                connectTimeout: 10000,
+                readTimeout: 10000
             });
 
-            if (response.status === 200) {
-                return { success: true, status: 200, message: 'الاتصال ناجح' };
+            if (response.status === 200 || response.status === 201) {
+                // السيرفر رد بنجاح (حتى لو كانت البيانات خطأ، المهم الخدمة موجودة)
+                return { success: true, status: 200, message: 'الخدمة تعمل ومتوفرة ✅' };
+            } else if (response.status === 404) {
+                return { success: false, status: 404, message: 'الخدمة غير موجودة (404) ❌' };
+            } else if (response.status === 500) {
+                // 500 يعني السيرفر موجود بس انفجر بسبب البيانات الوهمية، وهذا يعتبر نجاح جزئي للاتصال
+                return { success: true, status: 500, message: 'السيرفر يستجيب (500) ⚠️' };
             } else {
-                return { success: false, status: response.status, message: `الخادم رد برمز: ${response.status}` };
+                return { success: false, status: response.status, message: `رمز الحالة: ${response.status}` };
             }
         } catch (error: any) {
             console.error('❌ Connection Test Failed:', error);
@@ -80,20 +89,24 @@ export const ministryService = {
             });
 
             if (response.status === 404) {
-                throw new Error(`خطأ 404: الرابط غير صحيح.\nتأكد من إعدادات الخادم.\n(${baseUrl})`);
+                throw new Error(`خطأ 404: رابط الخدمة غير صحيح.\nحاول تغيير الرابط من الإعدادات.`);
             }
 
             if (response.status === 200 || response.status === 201) {
                 const data = response.data as ServiceResponse;
                 const result = data.d !== undefined ? data.d : data;
                 
-                if (typeof result === 'string' && (result.includes('Error') || result.includes('Fail'))) {
-                    throw new Error('بيانات الدخول غير صحيحة أو حدث خطأ في النظام');
+                // التحقق من رسائل الخطأ النصية التي قد تعود بداخل JSON
+                if (typeof result === 'string') {
+                     if (result.toLowerCase().includes('error') || result.toLowerCase().includes('fail')) {
+                         throw new Error('بيانات الدخول غير صحيحة');
+                     }
                 }
                 
                 if (typeof result === 'object') {
                     if (!result.UserID && !result.id && !result.AuthToken) {
-                         throw new Error('استجابة غير متوقعة من السيرفر');
+                         // أحياناً يعود السيرفر بكائن فارغ عند فشل الدخول
+                         throw new Error('بيانات الدخول غير صحيحة');
                     }
 
                     return {
