@@ -5,23 +5,31 @@ import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 // الرابط الافتراضي
 const DEFAULT_URL = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
 
+// احتمالات أسماء دوال تسجيل الدخول في أنظمة WCF المختلفة
+const POSSIBLE_LOGIN_ENDPOINTS = [
+    '/Login',
+    '/UserLogin',
+    '/ValidateUser',
+    '/SignIn',
+    '/Authenticate',
+    '/GetUserData' // أحياناً يتم الدمج
+];
+
 interface ServiceResponse {
     d?: any;
     [key: string]: any;
 }
 
-// User-Agent مخصص للآيفون
+// User-Agent مخصص
 const HEADERS = {
     'Content-Type': 'application/json; charset=UTF-8',
     'Accept': 'application/json',
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
 };
 
-// دالة مساعدة لجلب الرابط الحالي من التخزين
 const getServiceUrl = (): string => {
     try {
         const savedUrl = localStorage.getItem('ministry_api_url');
-        // إزالة الشرطة المائلة في النهاية إن وجدت
         let url = savedUrl || DEFAULT_URL;
         return url.replace(/\/+$/, '');
     } catch {
@@ -31,154 +39,152 @@ const getServiceUrl = (): string => {
 
 export const ministryService = {
     /**
-     * اختبار الاتصال بالرابط (Ping Deep Probe)
-     * يحاول الاتصال بـ Login مباشرة للتأكد من وجود الخدمة
+     * فحص ذكي: يحاول عدة مسارات للعثور على المسار الصحيح
      */
-    testConnection: async (url: string): Promise<{ success: boolean; status: number; message: string }> => {
-        // تنظيف الرابط
+    testConnection: async (url: string): Promise<{ success: boolean; status: number; message: string; foundEndpoint?: string }> => {
         const cleanUrl = url.replace(/\/+$/, '');
-        const endpoint = `${cleanUrl}/Login`;
         
-        try {
-            console.log('📡 Testing Endpoint:', endpoint);
-            
-            // نرسل بيانات وهمية. إذا رد السيرفر بـ "فشل الدخول" أو بيانات فارغة، فهذا يعني أن الرابط صحيح!
-            // إذا رد بـ 404، يعني الرابط خطأ.
-            const response = await CapacitorHttp.post({
-                url: endpoint,
-                headers: HEADERS,
-                data: { USme: "test_ping", PPPWZ: "test_ping" }, // بيانات وهمية
-                connectTimeout: 10000,
-                readTimeout: 10000
-            });
+        console.log('📡 Starting Deep Probe on:', cleanUrl);
 
-            if (response.status === 200 || response.status === 201) {
-                // السيرفر رد بنجاح (حتى لو كانت البيانات خطأ، المهم الخدمة موجودة)
-                return { success: true, status: 200, message: 'الخدمة تعمل ومتوفرة ✅' };
-            } else if (response.status === 404) {
-                return { success: false, status: 404, message: 'الخدمة غير موجودة (404) ❌' };
-            } else if (response.status === 500) {
-                // 500 يعني السيرفر موجود بس انفجر بسبب البيانات الوهمية، وهذا يعتبر نجاح جزئي للاتصال
-                return { success: true, status: 500, message: 'السيرفر يستجيب (500) ⚠️' };
-            } else {
-                return { success: false, status: response.status, message: `رمز الحالة: ${response.status}` };
+        // نجرب كل الاحتمالات
+        for (const path of POSSIBLE_LOGIN_ENDPOINTS) {
+            const endpoint = `${cleanUrl}${path}`;
+            try {
+                // نرسل طلب وهمي سريع
+                const response = await CapacitorHttp.post({
+                    url: endpoint,
+                    headers: HEADERS,
+                    data: { USme: "ping", PPPWZ: "ping" },
+                    connectTimeout: 5000,
+                    readTimeout: 5000
+                });
+
+                // 404 = الدالة غير موجودة، جرب التالية
+                if (response.status === 404) continue;
+
+                // 200 أو 500 = السيرفر موجود ورد علينا (حتى لو بخطأ في البيانات)
+                if (response.status === 200 || response.status === 500 || response.status === 401) {
+                    return { 
+                        success: true, 
+                        status: response.status, 
+                        message: `تم العثور على الخدمة في ${path} ✅`,
+                        foundEndpoint: path
+                    };
+                }
+            } catch (e) {
+                console.warn(`Probe failed for ${path}`, e);
             }
-        } catch (error: any) {
-            console.error('❌ Connection Test Failed:', error);
-            return { success: false, status: 0, message: error.message || 'فشل الاتصال بالخادم' };
         }
+
+        return { success: false, status: 404, message: 'لم يتم العثور على نقطة دخول صالحة (404) في هذا السيرفر.' };
     },
 
     /**
-     * تسجيل الدخول
+     * تسجيل الدخول مع الاستكشاف التلقائي
      */
     login: async (username: string, pass: string): Promise<MinistrySession | null> => {
         const baseUrl = getServiceUrl();
-        const endpoint = `${baseUrl}/Login`; 
         const payload = { USme: username, PPPWZ: pass };
+        
+        let lastError = null;
 
-        try {
-            console.log('📡 Attempting Login...', endpoint);
-            
-            const response = await CapacitorHttp.post({
-                url: endpoint,
-                headers: HEADERS,
-                data: payload,
-                connectTimeout: 15000,
-                readTimeout: 15000
-            });
+        // Loop through possible endpoints
+        for (const path of POSSIBLE_LOGIN_ENDPOINTS) {
+            const endpoint = `${baseUrl}${path}`;
+            console.log(`📡 Trying endpoint: ${path}`);
 
-            if (response.status === 404) {
-                throw new Error(`خطأ 404: رابط الخدمة غير صحيح.\nحاول تغيير الرابط من الإعدادات.`);
-            }
+            try {
+                const response = await CapacitorHttp.post({
+                    url: endpoint,
+                    headers: HEADERS,
+                    data: payload,
+                    connectTimeout: 8000, // مهلة قصيرة للتجربة السريعة
+                    readTimeout: 8000
+                });
 
-            if (response.status === 200 || response.status === 201) {
-                const data = response.data as ServiceResponse;
-                const result = data.d !== undefined ? data.d : data;
-                
-                // التحقق من رسائل الخطأ النصية التي قد تعود بداخل JSON
-                if (typeof result === 'string') {
-                     if (result.toLowerCase().includes('error') || result.toLowerCase().includes('fail')) {
-                         throw new Error('بيانات الدخول غير صحيحة');
-                     }
-                }
-                
-                if (typeof result === 'object') {
-                    if (!result.UserID && !result.id && !result.AuthToken) {
-                         // أحياناً يعود السيرفر بكائن فارغ عند فشل الدخول
-                         throw new Error('بيانات الدخول غير صحيحة');
+                // إذا 404، يعني هذا المسار خطأ، جرب غيره
+                if (response.status === 404) continue;
+
+                // إذا وصلنا هنا، السيرفر رد بشيء غير 404
+                if (response.status === 200 || response.status === 201) {
+                    const data = response.data as ServiceResponse;
+                    const result = data.d !== undefined ? data.d : data;
+                    
+                    if (typeof result === 'string') {
+                         if (result.toLowerCase().includes('error') || result.toLowerCase().includes('fail')) {
+                             throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+                         }
                     }
+                    
+                    if (typeof result === 'object') {
+                        // نجحنا! نحفظ المسار الصحيح لاستخدامه لاحقاً (تحسين الأداء مستقبلاً)
+                        localStorage.setItem('ministry_login_path', path);
 
-                    return {
-                        userId: result.UserID || result.id || '0',
-                        auth: result.AuthToken || result.token || '',
-                        userRoleId: result.UserRoleId || '0',
-                        schoolId: result.SchoolId || '0',
-                        teacherId: result.DepInsId || result.DeptInsId || '0'
-                    };
+                        if (!result.UserID && !result.id && !result.AuthToken) {
+                             throw new Error('بيانات الدخول غير صحيحة');
+                        }
+
+                        return {
+                            userId: result.UserID || result.id || '0',
+                            auth: result.AuthToken || result.token || '',
+                            userRoleId: result.UserRoleId || '0',
+                            schoolId: result.SchoolId || '0',
+                            teacherId: result.DepInsId || result.DeptInsId || '0'
+                        };
+                    }
+                } else {
+                    throw new Error(`خطأ في السيرفر: ${response.status}`);
                 }
-                return null;
-            } else {
-                console.error('Server Status:', response.status);
-                throw new Error(`خطأ في السيرفر: ${response.status}`);
+            } catch (error: any) {
+                lastError = error;
+                // إذا كان الخطأ "فشل اتصال" (Network Error)، نتوقف ولا نكمل الدوران لأن النت مقطوع
+                if (error.message && (error.message.includes('Network') || error.message.includes('Failed to fetch'))) {
+                    throw error;
+                }
+                // أخطاء أخرى (مثل 500) نعتبرها فشل في هذا المسار ونكمل
             }
-        } catch (error: any) {
-            console.error('❌ Login Failed:', error);
-            
-            let msg = error.message || 'فشل الاتصال';
-            if (msg.includes('Failed to fetch') || msg.includes('Load failed')) {
-                msg = 'تعذر الاتصال بالخادم. يرجى التأكد من الإنترنت.';
-            }
-            throw new Error(msg);
         }
+
+        // إذا انتهت الحلقة ولم ننجح
+        if (lastError) throw lastError;
+        throw new Error('لم يتم العثور على خدمة الدخول في هذا الرابط. تأكد من الإعدادات.');
     },
 
     /**
-     * جلب الفصول (الفلتر)
+     * جلب الفصول
      */
     getStudentAbsenceFilter: async (session: MinistrySession) => {
         const baseUrl = getServiceUrl();
-        const endpoint = `${baseUrl}/GetStudentAbsenceFilter`; 
-        const payload = {
-            userId: session.userId,
-            auth: session.auth,
-            UserRoleId: session.userRoleId,
-            SchoolId: session.schoolId,
-            DeptInsId: session.teacherId || '' 
-        };
+        // محاولة مسارات شائعة للفلتر أيضاً
+        const endpoints = ['/GetStudentAbsenceFilter', '/GetClasses', '/TeacherClasses'];
+        
+        for (const path of endpoints) {
+            try {
+                const response = await CapacitorHttp.post({
+                    url: `${baseUrl}${path}`,
+                    headers: HEADERS,
+                    data: {
+                        userId: session.userId,
+                        auth: session.auth,
+                        UserRoleId: session.userRoleId,
+                        SchoolId: session.schoolId,
+                        DeptInsId: session.teacherId || '' 
+                    },
+                    connectTimeout: 10000
+                });
 
-        try {
-            const response = await CapacitorHttp.post({
-                url: endpoint,
-                headers: HEADERS,
-                data: payload,
-                connectTimeout: 10000
-            });
-            if (response.status === 200) {
-                const data = response.data as ServiceResponse;
-                return data.d !== undefined ? data.d : data;
-            }
-            throw new Error(`Status ${response.status}`);
-        } catch (error) {
-            console.error('Failed to get filters', error);
-            throw error;
+                if (response.status === 200) {
+                    const data = response.data as ServiceResponse;
+                    return data.d !== undefined ? data.d : data;
+                }
+            } catch (e) { continue; }
         }
+        throw new Error('فشل جلب الفصول (404)');
     },
 
-    /**
-     * جلب تفاصيل غياب طالب
-     */
-    getStudentAbsenceDetails: async (
-        session: MinistrySession,
-        studentNo: string,
-        classId: string,
-        gradeId: string,
-        date: Date
-    ) => {
+    getStudentAbsenceDetails: async (session: MinistrySession, studentNo: string, classId: string, gradeId: string, date: Date) => {
         const baseUrl = getServiceUrl();
-        const endpoint = `${baseUrl}/GetStudentAbsenceDetails`; 
         const dateStr = date.toISOString().split('T')[0];
-
         const payload = {
             userId: session.userId,
             auth: session.auth,
@@ -194,7 +200,7 @@ export const ministryService = {
 
         try {
             const response = await CapacitorHttp.post({
-                url: endpoint,
+                url: `${baseUrl}/GetStudentAbsenceDetails`,
                 headers: HEADERS,
                 data: payload
             });
@@ -204,25 +210,14 @@ export const ministryService = {
             }
             throw new Error(`Status ${response.status}`);
         } catch (error) {
-            console.error('Failed to get absence details', error);
+            console.error('Failed details', error);
             throw error;
         }
     },
 
-    /**
-     * رفع (تسجيل) الغياب للوزارة
-     */
-    submitStudentAbsenceDetails: async (
-        session: MinistrySession,
-        classId: string,
-        gradeId: string,
-        date: Date,
-        details: StdsAbsDetail[]
-    ) => {
+    submitStudentAbsenceDetails: async (session: MinistrySession, classId: string, gradeId: string, date: Date, details: StdsAbsDetail[]) => {
         const baseUrl = getServiceUrl();
-        const endpoint = `${baseUrl}/SubmitStudentAbsenceDetails`;
         const dateStr = date.toISOString().split('T')[0];
-
         const payload = {
             userId: session.userId,
             auth: session.auth,
@@ -234,11 +229,9 @@ export const ministryService = {
             StdsAbsDetails: details
         };
 
-        console.log('📡 Submitting Absence:', payload);
-
         try {
             const response = await CapacitorHttp.post({
-                url: endpoint,
+                url: `${baseUrl}/SubmitStudentAbsenceDetails`,
                 headers: HEADERS,
                 data: payload,
                 connectTimeout: 20000
@@ -248,33 +241,14 @@ export const ministryService = {
                 const data = response.data as ServiceResponse;
                 return data.d !== undefined ? data.d : data;
             }
-            throw new Error(`Submission Error: ${response.status}`);
+            throw new Error(`Error: ${response.status}`);
         } catch (error) {
-            console.error('Failed to submit absence', error);
             throw error;
         }
     },
 
-    /**
-     * رفع (تسجيل) الدرجات للوزارة
-     */
-    submitStudentMarksDetails: async (
-        session: MinistrySession,
-        config: {
-            classId: string;
-            gradeId: string;
-            termId: string;
-            subjectId: string;
-            examId: string;
-            eduSysId?: string; 
-            stageId?: string;
-            examGradeType?: number;
-        },
-        grades: StdsGradeDetail[]
-    ) => {
+    submitStudentMarksDetails: async (session: MinistrySession, config: any, grades: StdsGradeDetail[]) => {
         const baseUrl = getServiceUrl();
-        const endpoint = `${baseUrl}/SubmitStudentMarksDetails`;
-
         const payload = {
             userId: session.userId,
             auth: session.auth,
@@ -291,11 +265,9 @@ export const ministryService = {
             StdsGradeDetails: grades
         };
 
-        console.log('📡 Submitting Marks:', payload);
-
         try {
             const response = await CapacitorHttp.post({
-                url: endpoint,
+                url: `${baseUrl}/SubmitStudentMarksDetails`,
                 headers: HEADERS,
                 data: payload,
                 connectTimeout: 20000
@@ -305,9 +277,8 @@ export const ministryService = {
                 const data = response.data as ServiceResponse;
                 return data.d !== undefined ? data.d : data;
             }
-            throw new Error(`Marks Submission Error: ${response.status}`);
+            throw new Error(`Error: ${response.status}`);
         } catch (error) {
-            console.error('Failed to submit marks', error);
             throw error;
         }
     }
