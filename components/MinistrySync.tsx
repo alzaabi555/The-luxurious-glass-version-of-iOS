@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
-import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building2, User, Key, Loader2, ShieldCheck, Wifi, Calendar, LayoutList, UploadCloud, AlertCircle, BarChart3, Settings2, Info, Link as LinkIcon, Check, X, RefreshCw, Activity } from 'lucide-react';
 import { ministryService } from '../services/MinistryService';
 import { MinistrySession, StdsAbsDetail, StdsGradeDetail } from '../types';
 import { useApp } from '../context/AppContext';
 import { Capacitor } from '@capacitor/core';
+import Modal from './Modal';
 
 const MinistrySync: React.FC = () => {
   const { students, assessmentTools } = useApp();
@@ -14,6 +15,12 @@ const MinistrySync: React.FC = () => {
   const [session, setSession] = useState<MinistrySession | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Settings State
+  const [showSettings, setShowSettings] = useState(false);
+  const [customApiUrl, setCustomApiUrl] = useState('');
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const [testMessage, setTestMessage] = useState('');
 
   // Tabs: 'absence' | 'marks'
   const [activeTab, setActiveTab] = useState<'absence' | 'marks'>('absence');
@@ -28,13 +35,57 @@ const MinistrySync: React.FC = () => {
   // --- Marks State ---
   const [marksConfig, setMarksConfig] = useState({
       termId: '1', // 1 or 2
-      subjectId: '', // To be entered manually or fetched if possible
-      examId: '', // To be entered manually
+      subjectId: '', 
+      examId: '', 
       examGradeType: 1,
       eduSysId: '1',
-      stageId: '0', // Often 0 or needs to be fetched
+      stageId: '0', 
   });
-  const [selectedLocalTool, setSelectedLocalTool] = useState<string>(''); // Which local assessment tool to push
+  const [selectedLocalTool, setSelectedLocalTool] = useState<string>('');
+
+  useEffect(() => {
+      // Load current URL setting
+      const saved = localStorage.getItem('ministry_api_url');
+      setCustomApiUrl(saved || 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc');
+  }, []);
+
+  useEffect(() => {
+      // Reset test status when URL changes
+      setTestStatus('idle');
+      setTestMessage('');
+  }, [customApiUrl]);
+
+  const handleTestConnection = async () => {
+      if (!customApiUrl) return;
+      setTestStatus('testing');
+      setTestMessage('');
+      
+      const result = await ministryService.testConnection(customApiUrl);
+      
+      if (result.success) {
+          setTestStatus('success');
+          setTestMessage('✅ تم الاتصال بنجاح (200 OK)');
+      } else {
+          setTestStatus('failed');
+          setTestMessage(`❌ فشل الاتصال: ${result.message}`);
+      }
+  };
+
+  const handleSaveSettings = () => {
+      if (customApiUrl.trim()) {
+          localStorage.setItem('ministry_api_url', customApiUrl.trim());
+          alert('تم حفظ رابط السيرفر بنجاح');
+          setShowSettings(false);
+      }
+  };
+
+  const handleResetSettings = () => {
+      const defaultUrl = 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc';
+      setCustomApiUrl(defaultUrl);
+      localStorage.removeItem('ministry_api_url');
+      alert('تم استعادة الرابط الافتراضي');
+      setShowSettings(false);
+  };
 
   // --- Auth & Filters Logic ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -43,7 +94,6 @@ const MinistrySync: React.FC = () => {
     setIsLoading(true);
     setErrorMessage('');
     
-    // Warning for web users
     if (!Capacitor.isNativePlatform()) {
         console.warn('Ministry Login might fail on Web due to CORS. Use a device/emulator.');
     }
@@ -121,7 +171,6 @@ const MinistrySync: React.FC = () => {
       const gradeId = selectedFilter.GradeId || "0";
       const className = selectedFilter.ClassName || selectedFilter.Name || "";
 
-      // Get local students
       const localStudentsInClass = students.filter(s => s.classes.includes(className) || s.grade === gradeId);
       if (localStudentsInClass.length === 0) { alert('لا يوجد طلاب محليين مطابقين لهذا الفصل'); return; }
 
@@ -134,7 +183,6 @@ const MinistrySync: React.FC = () => {
           const toolName = assessmentTools.find(t => t.id === selectedLocalTool)?.name;
 
           localStudentsInClass.forEach(student => {
-              // Find grade for this student, tool, and term
               const gradeRecord = student.grades?.find(g => 
                   g.category.trim() === toolName?.trim() && 
                   (g.semester || '1') === marksConfig.termId
@@ -156,11 +204,7 @@ const MinistrySync: React.FC = () => {
 
           const result = await ministryService.submitStudentMarksDetails(
               session,
-              {
-                  classId,
-                  gradeId,
-                  ...marksConfig
-              },
+              { classId, gradeId, ...marksConfig },
               gradeDetails
           );
 
@@ -181,8 +225,14 @@ const MinistrySync: React.FC = () => {
       <div className="pt-8 pb-4 px-6 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10 sticky top-0 z-10">
          <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">بوابة الوزارة</h2>
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <Building2 className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3">
+                {/* Settings Button */}
+                <button onClick={() => setShowSettings(true)} className="p-2 rounded-full bg-gray-200 dark:bg-white/10 hover:bg-gray-300 transition-colors">
+                    <Settings2 className="w-4 h-4 text-black dark:text-white" />
+                </button>
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
+                    <Building2 className="w-4 h-4 text-white" />
+                </div>
             </div>
          </div>
          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 font-medium">
@@ -214,7 +264,7 @@ const MinistrySync: React.FC = () => {
                         </div>
                     </div>
                     
-                    {errorMessage && <div className="text-center"><p className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-500/10 py-2 px-4 rounded-lg inline-block">{errorMessage}</p></div>}
+                    {errorMessage && <div className="text-center"><p className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-500/10 py-2 px-4 rounded-lg inline-block whitespace-pre-line" dir="ltr">{errorMessage}</p></div>}
                     
                     {!Capacitor.isNativePlatform() && (
                         <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl flex gap-3 items-start border border-amber-200 dark:border-amber-500/20">
@@ -249,7 +299,7 @@ const MinistrySync: React.FC = () => {
                      <button onClick={() => setActiveTab('marks')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'marks' ? 'bg-white dark:bg-gray-800 shadow text-black dark:text-white' : 'text-gray-500'}`}>رصد الدرجات</button>
                  </div>
 
-                 {/* Filters Selection (Common) */}
+                 {/* Filters Selection */}
                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-white/5">
                      <div className="flex items-center justify-between mb-4">
                          <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2">
@@ -322,25 +372,13 @@ const MinistrySync: React.FC = () => {
                                      </select>
                                  </div>
                                  <div className="flex-[2]">
-                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">الأداة المحلية (لأخذ الدرجات منها)</label>
+                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">الأداة المحلية</label>
                                      <select value={selectedLocalTool} onChange={e => setSelectedLocalTool(e.target.value)} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-2 py-2 text-xs font-bold outline-none">
                                          <option value="">اختر الأداة...</option>
                                          {assessmentTools.map(tool => (
                                              <option key={tool.id} value={tool.id}>{tool.name}</option>
                                          ))}
                                      </select>
-                                 </div>
-                             </div>
-                             
-                             {/* Advanced / Optional Fields Toggle (Implied) */}
-                             <div className="flex gap-2">
-                                 <div className="flex-1">
-                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">Stage ID</label>
-                                     <input type="text" value={marksConfig.stageId} onChange={e => setMarksConfig({...marksConfig, stageId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none" />
-                                 </div>
-                                 <div className="flex-1">
-                                     <label className="text-[9px] font-bold text-gray-400 mb-1 block">EduSys ID</label>
-                                     <input type="text" value={marksConfig.eduSysId} onChange={e => setMarksConfig({...marksConfig, eduSysId: e.target.value})} className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none" />
                                  </div>
                              </div>
                          </div>
@@ -353,7 +391,6 @@ const MinistrySync: React.FC = () => {
                      </div>
                  )}
 
-                 {/* Result Messages */}
                  {successMessage && <div className="mt-4 p-3 bg-emerald-500/10 text-emerald-600 rounded-xl text-xs font-bold text-center border border-emerald-500/20">{successMessage}</div>}
                  {errorMessage && <div className="mt-4 p-3 bg-red-500/10 text-red-600 rounded-xl text-xs font-bold text-center border border-red-500/20">{errorMessage}</div>}
 
@@ -362,6 +399,49 @@ const MinistrySync: React.FC = () => {
          )}
 
       </div>
+
+      {/* Settings Modal for changing URL */}
+      <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} className="max-w-sm rounded-[2rem]">
+          <div className="text-center">
+              <h3 className="font-black text-lg text-slate-900 dark:text-white mb-2">إعدادات الخادم</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">قم بتغيير هذا الرابط فقط في حالة ظهور خطأ 404 أو تغيير في سيرفرات الوزارة.</p>
+              
+              <div className="relative mb-4">
+                  <LinkIcon className="absolute top-3 right-3 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="text" 
+                    dir="ltr"
+                    value={customApiUrl} 
+                    onChange={e => setCustomApiUrl(e.target.value)}
+                    className="w-full bg-gray-100 dark:bg-white/10 rounded-xl py-3 pr-9 pl-3 text-xs font-bold text-left outline-none border border-transparent focus:border-blue-500 transition-colors"
+                    placeholder="https://..."
+                  />
+              </div>
+
+              {/* Test Connection Button */}
+              <button 
+                onClick={handleTestConnection}
+                disabled={testStatus === 'testing'}
+                className="w-full mb-4 py-2 px-3 rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-2 text-xs font-bold hover:bg-gray-50 dark:hover:bg-white/5 transition-all active:scale-95"
+              >
+                  {testStatus === 'testing' ? <Loader2 className="w-3 h-3 animate-spin"/> : <Activity className="w-3 h-3 text-indigo-500"/>}
+                  فحص الاتصال (Test URL)
+              </button>
+
+              {/* Test Result Message */}
+              {testMessage && (
+                  <div className={`text-[10px] font-bold py-2 mb-4 rounded-lg ${testStatus === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {testMessage}
+                  </div>
+              )}
+
+              <div className="flex gap-2">
+                  <button onClick={handleResetSettings} className="flex-1 py-3 text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl transition-colors">افتراضي</button>
+                  <button onClick={handleSaveSettings} className="flex-[2] py-3 text-xs font-black text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-lg shadow-blue-500/30 transition-colors">حفظ التغييرات</button>
+              </div>
+          </div>
+      </Modal>
+
     </div>
   );
 };
