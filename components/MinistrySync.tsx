@@ -7,12 +7,12 @@ import { useApp } from '../context/AppContext';
 import { Capacitor } from '@capacitor/core';
 import Modal from './Modal';
 
-// Known MOE Service URLs
+// Expanded MOE Service URLs
 const URL_PRESETS = [
-    { name: 'الافتراضي (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
-    { name: 'بوابة الهاتف (PortalMobility)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/PortalMobility.svc' },
-    { name: 'خدمات المعلم (TeacherServices)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/TeacherServices.svc' },
-    { name: 'عام (MobileServices)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MobileServices.svc' }
+    { name: 'الأساسي (MTletIt)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/MTletIt.svc' },
+    { name: 'البوابة التعليمية (EduGate)', url: 'https://mobile.moe.gov.om/EduGate/Services/Mobility.svc' },
+    { name: 'خدمات المعلم (Teacher)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/TeacherServices.svc' },
+    { name: 'بوابة الهاتف (Portal)', url: 'https://mobile.moe.gov.om/Sakhr.Elasip.Portal.Mobility/Services/PortalMobility.svc' },
 ];
 
 const MinistrySync: React.FC = () => {
@@ -42,7 +42,7 @@ const MinistrySync: React.FC = () => {
 
   // --- Marks State ---
   const [marksConfig, setMarksConfig] = useState({
-      termId: '1', // 1 or 2
+      termId: '1',
       subjectId: '', 
       examId: '', 
       examGradeType: 1,
@@ -52,13 +52,11 @@ const MinistrySync: React.FC = () => {
   const [selectedLocalTool, setSelectedLocalTool] = useState<string>('');
 
   useEffect(() => {
-      // Load current URL setting
       const saved = localStorage.getItem('ministry_api_url');
       setCustomApiUrl(saved || URL_PRESETS[0].url);
   }, []);
 
   useEffect(() => {
-      // Reset test status when URL changes
       setTestStatus('idle');
       setTestMessage('');
   }, [customApiUrl]);
@@ -66,7 +64,7 @@ const MinistrySync: React.FC = () => {
   const handleTestConnection = async () => {
       if (!customApiUrl) return;
       setTestStatus('testing');
-      setTestMessage('');
+      setTestMessage('جاري البحث عن نقطة الاتصال...');
       
       const result = await ministryService.testConnection(customApiUrl);
       
@@ -82,7 +80,7 @@ const MinistrySync: React.FC = () => {
   const handleSaveSettings = () => {
       if (customApiUrl.trim()) {
           localStorage.setItem('ministry_api_url', customApiUrl.trim());
-          alert('تم حفظ رابط السيرفر بنجاح');
+          alert('تم حفظ الإعدادات');
           setShowSettings(false);
       }
   };
@@ -102,10 +100,6 @@ const MinistrySync: React.FC = () => {
     setIsLoading(true);
     setErrorMessage('');
     
-    if (!Capacitor.isNativePlatform()) {
-        console.warn('Ministry Login might fail on Web due to CORS. Use a device/emulator.');
-    }
-
     try {
         const result = await ministryService.login(username, password);
         if (result) {
@@ -210,14 +204,13 @@ const MinistrySync: React.FC = () => {
               throw new Error('لا توجد درجات مرصودة محلياً لهذه الأداة في هذا الفصل');
           }
 
-          const result = await ministryService.submitStudentMarksDetails(
+          await ministryService.submitStudentMarksDetails(
               session,
               { classId, gradeId, ...marksConfig },
               gradeDetails
           );
 
           setSuccessMessage('تم رفع الدرجات بنجاح! ✅');
-          console.log(result);
 
       } catch (error: any) {
           setErrorMessage('فشل رفع الدرجات: ' + error.message);
@@ -234,7 +227,6 @@ const MinistrySync: React.FC = () => {
          <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">بوابة الوزارة</h2>
             <div className="flex items-center gap-3">
-                {/* Settings Button */}
                 <button onClick={() => setShowSettings(true)} className="p-2 rounded-full bg-gray-200 dark:bg-white/10 hover:bg-gray-300 transition-colors">
                     <Settings2 className="w-4 h-4 text-black dark:text-white" />
                 </button>
@@ -244,7 +236,7 @@ const MinistrySync: React.FC = () => {
             </div>
          </div>
          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 font-medium">
-             {session ? `مرحباً، المعلم (ID: ${session.userId})` : 'تسجيل الدخول للنظام التعليمي'}
+             {session ? `مرحباً، المعلم (ID: ${session.userId})` : 'الاتصال الذكي (Smart Sync)'}
          </p>
       </div>
 
@@ -256,7 +248,7 @@ const MinistrySync: React.FC = () => {
                     <div className="w-24 h-24 bg-white dark:bg-[#1C1C1E] rounded-[22px] shadow-sm flex items-center justify-center relative border border-gray-100 dark:border-white/5">
                         <img src="oman_logo.png" className="w-16 opacity-90" alt="MOE" onError={(e) => e.currentTarget.style.display='none'} />
                         <div className="absolute -bottom-3 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-                            <Wifi className="w-3 h-3" /> متصل
+                            <Wifi className="w-3 h-3" /> جاهز للاتصال
                         </div>
                     </div>
                 </div>
@@ -278,7 +270,7 @@ const MinistrySync: React.FC = () => {
                         <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl flex gap-3 items-start border border-amber-200 dark:border-amber-500/20">
                             <Info className="w-5 h-5 text-amber-500 shrink-0" />
                             <p className="text-[10px] font-bold text-amber-800 dark:text-amber-200 text-right">
-                                تنبيه: تسجيل الدخول قد يفشل على المتصفح بسبب سياسات الأمان (CORS). يرجى تجربة الميزة على التطبيق الفعلي في الهاتف.
+                                ميزة البحث الذكي مفعلة: سيتم تجربة عدة نقاط اتصال تلقائياً. قد يستغرق الدخول بضع ثوانٍ.
                             </p>
                         </div>
                     )}
@@ -290,6 +282,7 @@ const MinistrySync: React.FC = () => {
              </>
          ) : (
              <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                 {/* ... (Existing UI for session active remains same) ... */}
                  {/* Session Status */}
                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
                      <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
@@ -408,11 +401,11 @@ const MinistrySync: React.FC = () => {
 
       </div>
 
-      {/* Settings Modal for changing URL */}
+      {/* Settings Modal */}
       <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} className="max-w-sm rounded-[2rem]">
           <div className="text-center">
               <h3 className="font-black text-lg text-slate-900 dark:text-white mb-2">إعدادات الخادم</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">قم بتغيير هذا الرابط في حالة ظهور خطأ 404.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">يمكنك تغيير السيرفر إذا واجهت مشاكل في الاتصال.</p>
               
               <div className="space-y-3 mb-6">
                   {URL_PRESETS.map((preset, idx) => (
@@ -439,7 +432,6 @@ const MinistrySync: React.FC = () => {
                   />
               </div>
 
-              {/* Test Connection Button */}
               <button 
                 onClick={handleTestConnection}
                 disabled={testStatus === 'testing'}
@@ -449,9 +441,8 @@ const MinistrySync: React.FC = () => {
                   فحص دقيق للرابط (Deep Ping)
               </button>
 
-              {/* Test Result Message */}
               {testMessage && (
-                  <div className={`text-[10px] font-bold py-2 mb-4 rounded-lg ${testStatus === 'success' || testStatus === 'idle' && testMessage.includes('500') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  <div className={`text-[10px] font-bold py-2 mb-4 rounded-lg px-2 break-all ${testStatus === 'success' || (testStatus === 'idle' && testMessage.includes('200')) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>
                       {testMessage}
                   </div>
               )}
