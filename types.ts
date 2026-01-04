@@ -12,6 +12,7 @@ export interface Student {
   avatar?: string;
   spentCoins?: number; 
   groupId?: string | null; // معرف الفريق (ديناميكي)
+  examPapers?: ExamPaper[];
 }
 
 export interface Group {
@@ -65,6 +66,13 @@ export interface AssessmentTool {
   maxScore: number;
 }
 
+export interface CertificateSettings {
+  title: string;
+  bodyText: string;
+  backgroundImage?: string; // Base64 string for custom background
+  showDefaultDesign: boolean; // Toggle built-in CSS shapes
+}
+
 // --- أنواع بيانات الوزارة (Ministry Sync) ---
 export interface MinistrySession {
   userId: string;
@@ -85,6 +93,22 @@ export interface StdsGradeDetail {
   MarkValue: string;
   IsAbsent: boolean;
   Notes: string;
+}
+
+// --- Exam Grading Types ---
+export interface GradingData {
+  mcq: (number | null)[];
+  essay: { [key: string]: { [part: string]: number } };
+}
+
+export interface ExamPaper {
+  id: string;
+  title: string;
+  fileData: string; // Base64 string
+  date: string;
+  gradingData?: GradingData;
+  totalScore?: number;
+  maxScore?: number;
 }
 
 // --- تعريف الجسر الإلكتروني (Electron Bridge) ---
