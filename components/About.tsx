@@ -37,7 +37,7 @@ const About: React.FC = () => {
                   </div>
                   <div className="text-right">
                       <p className="text-[10px] font-black text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">للتواصل والدعم الفني</p>
-                      <h3 className="text-lg font-black text-slate-800 dark:text-white" dir="ltr">+968 99834455</h3>
+                      <h3 className="text-lg font-black text-slate-800 dark:text-white" dir="ltr">98344555</h3>
                   </div>
               </div>
           </div>

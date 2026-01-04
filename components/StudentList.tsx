@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Student, BehaviorType } from '../types';
-import { Search, ThumbsUp, ThumbsDown, Edit2, Sparkles, Trash2, Plus, Printer, Loader2, MessageCircle, DoorOpen, LayoutGrid, FileSpreadsheet, X, UserPlus, Upload, MoreHorizontal } from 'lucide-react';
+import { Search, ThumbsUp, ThumbsDown, Edit2, Sparkles, Trash2, Plus, Loader2, MessageCircle, DoorOpen, LayoutGrid, FileSpreadsheet, X, UserPlus, Upload, MoreHorizontal, Settings, PartyPopper, Trophy, Frown, CloudRain, PenTool } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from './Modal';
 import ExcelImport from './ExcelImport';
@@ -12,7 +12,11 @@ import { Share } from '@capacitor/share';
 import * as XLSX from 'xlsx';
 import { useApp } from '../context/AppContext';
 
-declare var html2pdf: any;
+// روابط أصوات خفيفة ومناسبة
+const SOUNDS = {
+    positive: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // صوت نجاح/جرس
+    negative: 'https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3'  // صوت خطأ/تنبيه منخفض
+};
 
 interface StudentListProps {
   students: Student[];
@@ -29,8 +33,8 @@ interface StudentListProps {
   onDeleteClass: (className: string) => void;
 }
 
-const StudentItem = React.memo(({ student, onViewReport, onAction, currentSemester }: { 
-    student: Student, onViewReport: (s: Student) => void, onAction: (s: Student, type: 'positive' | 'negative' | 'edit' | 'delete' | 'truant') => void, currentSemester: '1' | '2'
+const StudentItem = React.memo(({ student, onAction, currentSemester }: { 
+    student: Student, onAction: (s: Student, type: 'positive' | 'negative' | 'edit' | 'delete' | 'truant') => void, currentSemester: '1' | '2'
 }) => {
     const totalScore = useMemo(() => (student.grades || []).filter(g => !g.semester || g.semester === currentSemester).reduce((sum, g) => sum + (Number(g.score) || 0), 0), [student.grades, currentSemester]);
     const gradeSymbol = useMemo(() => { if (totalScore >= 90) return 'أ'; if (totalScore >= 80) return 'ب'; if (totalScore >= 65) return 'ج'; if (totalScore >= 50) return 'د'; return 'هـ'; }, [totalScore]);
@@ -45,31 +49,36 @@ const StudentItem = React.memo(({ student, onViewReport, onAction, currentSemest
     return (
         <motion.div 
             initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-            className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 mb-3 glass-card rounded-[1.5rem] cursor-pointer hover:border-white/30 transition-all gap-4 sm:gap-0"
-            onClick={() => onViewReport(student)}
+            className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 mb-3 rounded-[1.8rem] gap-4 sm:gap-0 relative overflow-hidden transition-all duration-300
+            bg-gradient-to-br from-white/10 via-white/5 to-transparent dark:from-white/5 dark:via-white/[0.02] dark:to-transparent
+            border border-white/20 hover:border-indigo-400/30 dark:hover:border-indigo-400/20
+            shadow-lg shadow-black/5 hover:shadow-indigo-500/10 hover:-translate-y-1 backdrop-blur-md"
         >
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div className="w-14 h-14 rounded-2xl glass-icon flex items-center justify-center text-slate-600 dark:text-white/70 text-lg font-bold overflow-hidden shrink-0 shadow-lg group-hover:scale-105 transition-transform border border-white/20">
+            {/* Glossy highlight effect on hover */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none"></div>
+
+            <div className="flex items-center gap-4 flex-1 min-w-0 relative z-10">
+                <div className="w-14 h-14 rounded-2xl glass-icon flex items-center justify-center text-slate-600 dark:text-white/70 text-lg font-bold overflow-hidden shrink-0 shadow-lg group-hover:scale-105 transition-transform border border-white/30 group-hover:border-indigo-300/50">
                     {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover" /> : student.name.charAt(0)}
                 </div>
                 <div className="min-w-0">
-                    <h3 className="font-black text-slate-900 dark:text-white text-base truncate group-hover:text-glow transition-all">{student.name}</h3>
+                    <h3 className="font-black text-slate-900 dark:text-white text-base truncate group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors">{student.name}</h3>
                     <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[10px] glass-icon text-slate-500 dark:text-white/60 px-2.5 py-1 rounded-lg font-bold">{student.classes[0]}</span>
-                        <span className={`text-[10px] px-2.5 py-1 rounded-lg font-bold border ${gradeColor}`}>{gradeSymbol} ({totalScore})</span>
+                        <span className="text-[10px] glass-icon text-slate-500 dark:text-white/60 px-2.5 py-1 rounded-lg font-bold shadow-sm">{student.classes[0]}</span>
+                        <span className={`text-[10px] px-2.5 py-1 rounded-lg font-bold border shadow-sm ${gradeColor}`}>{gradeSymbol} ({totalScore})</span>
                     </div>
                 </div>
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-2 pl-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/5">
-                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'positive'); }} className="w-10 h-10 rounded-xl flex items-center justify-center glass-icon text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/20 transition-all active:scale-90">
+            <div className="flex items-center justify-between sm:justify-end gap-2 pl-1 relative z-10">
+                <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
+                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'positive'); }} className="w-10 h-10 rounded-xl flex items-center justify-center glass-icon text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/20 transition-all active:scale-90 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]">
                         <ThumbsUp className="w-5 h-5" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'negative'); }} className="w-10 h-10 rounded-xl flex items-center justify-center glass-icon text-rose-500 hover:text-rose-400 hover:bg-rose-500/20 transition-all active:scale-90">
+                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'negative'); }} className="w-10 h-10 rounded-xl flex items-center justify-center glass-icon text-rose-500 hover:text-rose-400 hover:bg-rose-500/20 transition-all active:scale-90 hover:shadow-[0_0_15px_rgba(244,63,94,0.3)]">
                         <ThumbsDown className="w-5 h-5" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'truant'); }} className="w-10 h-10 rounded-xl flex items-center justify-center glass-icon text-purple-500 hover:text-purple-400 hover:bg-purple-500/20 transition-all active:scale-90" title="تسرب">
+                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'truant'); }} className="w-10 h-10 rounded-xl flex items-center justify-center glass-icon text-purple-500 hover:text-purple-400 hover:bg-purple-500/20 transition-all active:scale-90 hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]" title="تسرب">
                         <DoorOpen className="w-5 h-5" />
                     </button>
                 </div>
@@ -77,7 +86,7 @@ const StudentItem = React.memo(({ student, onViewReport, onAction, currentSemest
                 <div className="w-px h-8 bg-white/10 mx-1 hidden sm:block"></div>
                 
                 <div className="flex items-center gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'edit'); }} className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-white hover:bg-white/10 transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); onAction(student, 'edit'); }} className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-indigo-500 hover:bg-white/10 transition-colors">
                         <Edit2 className="w-4 h-4" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); onAction(student, 'delete'); }} className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
@@ -113,363 +122,188 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
   const [customBehaviorReason, setCustomBehaviorReason] = useState('');
   const [customBehaviorPoints, setCustomBehaviorPoints] = useState<string>('1');
 
+  // Animation Feedback State
+  const [feedbackAnimation, setFeedbackAnimation] = useState<{ type: BehaviorType, text: string } | null>(null);
+
   // Random Picker State
   const [randomStudent, setRandomStudent] = useState<Student | null>(null);
   const [isRandomPicking, setIsRandomPicking] = useState(false);
-
-  // Export States
-  const [isExporting, setIsExporting] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
-  const filteredStudents = useMemo(() => students.filter(s => {
-      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesClass = selectedClass === 'all' || s.classes?.includes(selectedClass);
-      return matchesSearch && matchesClass;
-  }), [students, searchTerm, selectedClass]);
+  const filteredStudents = useMemo(() => students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) && (selectedClass === 'all' || s.classes?.includes(selectedClass))), [students, searchTerm, selectedClass]);
 
-  const handleAction = useCallback((student: Student, type: 'positive' | 'negative' | 'edit' | 'delete' | 'truant') => {
-      if (type === 'positive') { 
-          setCustomBehaviorReason(''); 
-          setCustomBehaviorPoints('1'); 
-          setShowPositiveReasons({student}); 
+  // Clear animation after delay
+  useEffect(() => {
+      if (feedbackAnimation) {
+          const timer = setTimeout(() => setFeedbackAnimation(null), 1800);
+          return () => clearTimeout(timer);
       }
-      else if (type === 'negative') { 
-          setCustomBehaviorReason(''); 
-          setCustomBehaviorPoints('-1'); 
-          setShowNegativeReasons({student}); 
-      }
-      else if (type === 'truant') {
-          const today = new Date().toLocaleDateString('en-CA');
-          const filteredAttendance = student.attendance.filter(a => a.date !== today);
-          const updatedStudent = {
-              ...student,
-              attendance: [...filteredAttendance, { date: today, status: 'truant' as const }]
-          };
-          onUpdateStudent(updatedStudent);
-          alert(`تم تسجيل ${student.name} كمتسرب لهذا اليوم`);
-      }
-      else if (type === 'edit') { 
-          setEditingStudent(student); 
-          setEditName(student.name); 
-          setEditPhone(student.parentPhone || ''); 
-          setEditClass(student.classes[0] || ''); 
-          setEditAvatar(student.avatar || ''); 
-          setShowManualAddModal(true); 
-      }
-      else if (type === 'delete') { 
-          if(confirm('حذف الطالب؟')) onDeleteStudent(student.id); 
-      }
-  }, [onDeleteStudent, onUpdateStudent]);
+  }, [feedbackAnimation]);
 
-  const handleAddBehavior = (student: Student, type: BehaviorType, description: string, points: number) => {
-    onUpdateStudent({ 
-        ...student, 
-        behaviors: [{ 
-            id: Math.random().toString(36).substr(2, 9), 
-            date: new Date().toISOString(), 
-            type, 
-            description, 
-            points, 
-            semester: currentSemester 
-        }, ...(student.behaviors || [])] 
-    });
-    
-    setShowNegativeReasons(null); 
-    setShowPositiveReasons(null);
+  const playBehaviorSound = (type: BehaviorType) => {
+      try {
+          const audio = new Audio(type === 'positive' ? SOUNDS.positive : SOUNDS.negative);
+          audio.volume = 0.6; 
+          audio.play().catch(e => console.warn('Audio play blocked', e));
+      } catch (e) {
+          console.error('Failed to play sound', e);
+      }
   };
 
-  const handleManualBehaviorSubmit = (type: BehaviorType, student: Student) => {
-      if (!customBehaviorReason.trim()) return;
-      const points = parseInt(customBehaviorPoints) || (type === 'positive' ? 1 : -1);
-      handleAddBehavior(student, type, customBehaviorReason, points);
+  const handleAction = (student: Student, type: 'positive' | 'negative' | 'edit' | 'delete' | 'truant') => {
+      if (type === 'positive') setShowPositiveReasons({ student });
+      else if (type === 'negative') setShowNegativeReasons({ student });
+      else if (type === 'edit') {
+          setEditingStudent(student);
+          setEditName(student.name);
+          setEditClass(student.classes[0]);
+          setEditPhone(student.parentPhone || '');
+          setEditAvatar(student.avatar || '');
+          setShowManualAddModal(true);
+      }
+      else if (type === 'delete') {
+          if(confirm(`حذف الطالب ${student.name}؟`)) onDeleteStudent(student.id);
+      }
+      else if (type === 'truant') {
+          if(confirm('تسجيل هروب (تسرب) لهذا الطالب؟')) {
+             handleAddBehavior(student, 'negative', 'تسرب من الحصة', 3);
+          }
+      }
   };
 
   const handleSaveStudent = () => {
-      if (!editName.trim() || !editClass.trim()) return alert('البيانات ناقصة');
-      if (editingStudent) onUpdateStudent({ ...editingStudent, name: editName, parentPhone: editPhone, classes: [editClass], avatar: editAvatar });
-      else onAddStudentManually(editName, editClass, editPhone, editAvatar);
-      setShowManualAddModal(false); setEditingStudent(null); setEditName(''); setEditPhone(''); setEditClass(''); setEditAvatar('');
-  };
-
-  const pickRandomStudent = () => { 
-      if (filteredStudents.length === 0) return; 
-      setIsRandomPicking(true); 
-      setRandomStudent(filteredStudents[Math.floor(Math.random() * filteredStudents.length)]); 
-      let i=0; 
-      const int = setInterval(() => { 
-          setRandomStudent(filteredStudents[Math.floor(Math.random() * filteredStudents.length)]); 
-          i++; 
-          if(i>15) { 
-              clearInterval(int); 
-              setIsRandomPicking(false); 
-          } 
-      }, 100); 
-  };
-
-  const exportPDF = async (element: HTMLElement, filename: string, setLoader: (val: boolean) => void) => {
-    setLoader(true);
-    const opt = {
-        margin: 10,
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    if (typeof html2pdf !== 'undefined') {
-        try {
-            const worker = html2pdf().set(opt).from(element).toPdf();
-            if (Capacitor.isNativePlatform()) {
-                 const pdfBase64 = await worker.output('datauristring');
-                 const base64Data = pdfBase64.split(',')[1];
-                 const result = await Filesystem.writeFile({ path: filename, data: base64Data, directory: Directory.Cache });
-                 await Share.share({ title: filename, url: result.uri, dialogTitle: 'مشاركة/حفظ' });
-            } else {
-                 const pdfBlob = await worker.output('blob');
-                 const url = URL.createObjectURL(pdfBlob);
-                 const link = document.createElement('a');
-                 link.href = url; link.download = filename; link.target = "_blank";
-                 document.body.appendChild(link); link.click();
-                 setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 2000);
-            }
-        } catch (err) { console.error('PDF Error:', err); } finally { setLoader(false); }
-    } else { alert('مكتبة PDF غير جاهزة'); setLoader(false); }
-  };
-
-  const handlePrintPdfReport = async () => {
-      if (filteredStudents.length === 0) return alert('لا يوجد طلاب');
-      setIsGeneratingPdf(true);
-
-      const element = document.createElement('div');
-      element.setAttribute('dir', 'rtl');
-      element.style.fontFamily = 'Tajawal, sans-serif';
-      element.style.padding = '20px';
-      element.style.backgroundColor = '#fff';
-      element.style.color = '#000';
-
-      const rows = filteredStudents.map((s, i) => {
-          const absences = s.attendance.filter(a => a.status === 'absent').map(a => a.date).join(', ');
-          const pos = (s.behaviors || []).filter(b => b.type === 'positive').map(b => b.description).join('، ');
-          const neg = (s.behaviors || []).filter(b => b.type === 'negative').map(b => b.description).join('، ');
-          
-          return `
-            <tr>
-                <td style="border:1px solid #000; padding:5px; text-align:center;">${i + 1}</td>
-                <td style="border:1px solid #000; padding:5px;">${s.name}</td>
-                <td style="border:1px solid #000; padding:5px; text-align:center;">${s.attendance.filter(a => a.status === 'absent').length}</td>
-                <td style="border:1px solid #000; padding:5px; font-size:10px;">${absences}</td>
-                <td style="border:1px solid #000; padding:5px; font-size:10px; color:green;">${pos}</td>
-                <td style="border:1px solid #000; padding:5px; font-size:10px; color:red;">${neg}</td>
-            </tr>
-          `;
-      }).join('');
-
-      element.innerHTML = `
-        <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="margin:0;">تقرير شامل للطلاب</h2>
-            <p style="margin:5px 0;">الفصل: ${selectedClass === 'all' ? 'جميع الفصول' : selectedClass} | التاريخ: ${new Date().toLocaleDateString('ar-EG')}</p>
-        </div>
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead>
-                <tr style="background-color:#eee;">
-                    <th style="border:1px solid #000; padding:5px; width:30px;">#</th>
-                    <th style="border:1px solid #000; padding:5px;">الاسم</th>
-                    <th style="border:1px solid #000; padding:5px; width:50px;">غياب</th>
-                    <th style="border:1px solid #000; padding:5px;">تواريخ الغياب</th>
-                    <th style="border:1px solid #000; padding:5px;">سلوك إيجابي</th>
-                    <th style="border:1px solid #000; padding:5px;">سلوك سلبي</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-      `;
-      exportPDF(element, `تقرير_شامل_${selectedClass}.pdf`, setIsGeneratingPdf);
-  };
-
-  const handleExportExcelReport = async () => { /* Kept same */ };
-
-  // --- CERTIFICATE BATCH PRINTING ---
-  const getBase64Image = async (url: string): Promise<string> => {
-      try {
-          const response = await fetch(url);
-          if (!response.ok) return "";
-          const blob = await response.blob();
-          return new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => resolve("");
-              reader.readAsDataURL(blob);
-          });
-      } catch (error) { return ""; }
-  };
-
-  const handleBatchPrintCertificates = async () => {
-      if (filteredStudents.length === 0) return alert('لا يوجد طلاب');
-      if (!confirm(`سيتم تجهيز ${filteredStudents.length} شهادة للطباعة. هذا قد يستغرق لحظات.\n\nتأكد من تفعيل خيار "Background graphics" في إعدادات الطباعة لظهور الألوان.`)) return;
-
-      setIsGeneratingPdf(true);
-      
-      const schoolName = teacherInfo?.school || '...................';
-      const teacherName = teacherInfo?.name || '...................';
-      const subject = teacherInfo?.subject || '...............';
-      const currentYear = new Date().getFullYear();
-      const governorate = teacherInfo?.governorate || '.........';
-      const emblemSrc = await getBase64Image('oman_logo.png') || await getBase64Image('icon.png');
-      const stampSrc = teacherInfo?.stamp || ''; 
-
-      // Construct HTML
-      const pagesHtml = filteredStudents.map(student => `
-        <div class="cert-body">
-            <div class="frame-border"><div class="frame-corner c-tl"></div><div class="frame-corner c-tr"></div><div class="frame-corner c-bl"></div><div class="frame-corner c-br"></div></div>
-            <div class="deco-tri tri-1"></div><div class="deco-tri tri-2"></div>
-            <div class="content-wrapper">
-                <div class="header-container">
-                    ${emblemSrc ? `<img src="${emblemSrc}" class="oman-logo" />` : ''}
-                    <div class="ministry-info">
-                        سلطنة عمان<br/>
-                        وزارة التربية والتعليم<br/>
-                        المديرية العامة للتربية والتعليم لمحافظة ${governorate}<br/>
-                        مدرسة ${schoolName}
-                    </div>
-                </div>
-                <div class="main-title">شهادة تفوق دراسي<div class="title-underline"></div></div>
-                <div class="cert-text-block">
-                    تتشرف إدارة مدرسة <span class="highlight-data">${schoolName}</span> بمنح الطالب<br/>
-                    <span class="highlight-name">${student.name}</span><br/>
-                    هذه الشهادة نظير تفوقه وتميزه في مادة <span class="highlight-data">${subject}</span><br/>
-                    للصف <span class="highlight-data">${student.classes[0] || '....'}</span> للعام الدراسي <span class="highlight-data">${currentYear} / ${currentYear + 1}</span><br/>
-                    <span style="font-size: 18px; color: #666;">متمنين له دوام التوفيق والنجاح</span>
-                </div>
-                <div class="signatures-row">
-                    <div class="sig-box"><div class="sig-title">معلم المادة</div><div class="sig-line">${teacherName}</div></div>
-                    <div class="sig-box">
-                        <div class="sig-title">مدير المدرسة</div>
-                        <div class="sig-line">.........................</div>
-                        ${stampSrc ? `<img src="${stampSrc}" class="stamp-img" />` : ''}
-                    </div>
-                </div>
-            </div>
-        </div>
-      `).join('');
-
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-          printWindow.document.write(`
-            <html>
-                <head>
-                    <title>طباعة الشهادات</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&family=Amiri:wght@400;700&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
-                    <style>
-                        @page { size: A4 landscape; margin: 0; }
-                        body { margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                        
-                        .cert-body { 
-                            width: 297mm; height: 210mm; position: relative; background: #fff; overflow: hidden; 
-                            display: flex; flex-direction: column; align-items: center; box-sizing: border-box; 
-                            padding: 10mm; justify-content: space-between; page-break-after: always;
-                        }
-                        .cert-body:last-child { page-break-after: auto; }
-
-                        /* Design Styles */
-                        .frame-border { position: absolute; top: 8mm; left: 8mm; right: 8mm; bottom: 8mm; border: 2px solid #0891b2; border-radius: 10px; z-index: 1; background: transparent; }
-                        .frame-corner { position: absolute; width: 40px; height: 40px; z-index: 2; border: 6px solid #f59e0b; }
-                        .c-tl { top: -2px; left: -2px; border-right: none; border-bottom: none; border-radius: 10px 0 0 0; }
-                        .c-tr { top: -2px; right: -2px; border-left: none; border-bottom: none; border-radius: 0 10px 0 0; }
-                        .c-bl { bottom: -2px; left: -2px; border-right: none; border-top: none; border-radius: 0 0 0 10px; }
-                        .c-br { bottom: -2px; right: -2px; border-left: none; border-top: none; border-radius: 0 0 10px 0; }
-                        .deco-tri { position: absolute; width: 0; height: 0; opacity: 0.1; z-index: 0; }
-                        .tri-1 { top: 0; left: 0; border-top: 180px solid #0891b2; border-right: 180px solid transparent; }
-                        .tri-2 { bottom: 0; right: 0; border-bottom: 180px solid #0891b2; border-left: 180px solid transparent; }
-                        
-                        .content-wrapper { position: relative; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; align-items: center; }
-                        .header-container { text-align: center; margin-bottom: 5px; width: 100%; }
-                        .oman-logo { height: 70px; width: auto; margin-bottom: 5px; }
-                        .ministry-info { font-family: 'Tajawal', sans-serif; font-size: 14px; color: #444; line-height: 1.4; font-weight: bold; }
-                        .main-title { font-family: 'Aref Ruqaa', serif; font-size: 50px; color: #1e293b; margin: 5px 0 20px 0; position: relative; }
-                        .title-underline { width: 120px; height: 3px; background: #f59e0b; margin: 0 auto; border-radius: 2px; }
-                        .cert-text-block { font-family: 'Amiri', serif; font-size: 24px; text-align: center; line-height: 2; color: #1f2937; width: 90%; margin-top: 10px; flex-grow: 1; }
-                        .highlight-name { color: #0e7490; font-weight: bold; font-size: 34px; padding: 0 10px; display: inline-block; }
-                        .highlight-data { color: #b45309; font-weight: bold; padding: 0 5px; }
-                        .signatures-row { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 60px 20px 60px; margin-top: auto; }
-                        .sig-box { text-align: center; width: 250px; position: relative; }
-                        .sig-title { font-family: 'Tajawal', sans-serif; font-size: 18px; font-weight: bold; color: #64748b; margin-bottom: 30px; }
-                        .sig-line { font-family: 'Amiri', serif; font-size: 20px; font-weight: bold; color: #000; border-top: 1px solid #cbd5e1; padding-top: 5px; display: block; }
-                        
-                        /* Stamp CSS Logic */
-                        .stamp-img { 
-                            position: absolute; 
-                            top: -20px; 
-                            left: 40px; 
-                            width: 110px; 
-                            height: auto; 
-                            opacity: 0.85; 
-                            transform: rotate(-10deg); 
-                            mix-blend-mode: multiply; 
-                            z-index: 5;
-                        }
-                    </style>
-                </head>
-                <body dir="rtl">
-                    ${pagesHtml}
-                    <script>
-                        // Wait for images to load before print
-                        window.onload = function() {
-                            setTimeout(function(){
-                                window.print();
-                            }, 500);
-                        };
-                    </script>
-                </body>
-            </html>
-          `);
-          printWindow.document.close();
+      if (editName.trim() && editClass.trim()) {
+          if (editingStudent) {
+              onUpdateStudent({ ...editingStudent, name: editName, classes: [editClass], parentPhone: editPhone, avatar: editAvatar });
+          } else {
+              onAddStudentManually(editName, editClass, editPhone, editAvatar);
+          }
+          setShowManualAddModal(false);
+          setEditingStudent(null);
+          setEditName(''); setEditPhone(''); setEditClass(''); setEditAvatar('');
       }
-      setIsGeneratingPdf(false);
+  };
+
+  const pickRandomStudent = () => {
+      if (filteredStudents.length === 0) return;
+      setIsRandomPicking(true);
+      let count = 0;
+      const interval = setInterval(() => {
+          const random = filteredStudents[Math.floor(Math.random() * filteredStudents.length)];
+          setRandomStudent(random);
+          count++;
+          if (count > 10) {
+              clearInterval(interval);
+              setIsRandomPicking(false);
+          }
+      }, 100);
+  };
+
+  const handleAddBehavior = (student: Student, type: BehaviorType, reason: string, points: number) => {
+      // 1. Play Sound
+      playBehaviorSound(type);
+
+      // 2. Trigger Visual Animation
+      setFeedbackAnimation({ 
+          type, 
+          text: type === 'positive' ? 'أحسنت!' : 'انتبه!' 
+      });
+
+      // 3. Update Data
+      const newBehavior = {
+          id: Math.random().toString(36).substr(2, 9),
+          date: new Date().toISOString(),
+          type,
+          description: reason,
+          points: Math.abs(points),
+          semester: currentSemester
+      };
+      const updatedStudent = { ...student, behaviors: [newBehavior, ...(student.behaviors || [])] };
+      onUpdateStudent(updatedStudent);
+      setShowPositiveReasons(null);
+      setShowNegativeReasons(null);
+  };
+
+  const handleManualBehaviorSubmit = (type: BehaviorType, student: Student) => {
+      if (customBehaviorReason.trim()) {
+          handleAddBehavior(student, type, customBehaviorReason, parseInt(customBehaviorPoints) || 1);
+          setCustomBehaviorReason('');
+      }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] text-slate-900 dark:text-white pb-20">
+    <div className="flex flex-col h-[calc(100vh-80px)] text-slate-900 dark:text-white pb-20 relative">
         
+        {/* --- FEEDBACK ANIMATION OVERLAY --- */}
+        <AnimatePresence>
+            {feedbackAnimation && (
+                <motion.div 
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 15 }}
+                    className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none"
+                >
+                    <div className={`
+                        p-8 rounded-[3rem] shadow-2xl flex flex-col items-center gap-4 border-4
+                        backdrop-blur-xl
+                        ${feedbackAnimation.type === 'positive' 
+                            ? 'bg-emerald-500/90 border-emerald-300 text-white shadow-emerald-500/50' 
+                            : 'bg-rose-500/90 border-rose-300 text-white shadow-rose-500/50'}
+                    `}>
+                        <div className="bg-white/20 p-6 rounded-full shadow-inner">
+                            {feedbackAnimation.type === 'positive' ? (
+                                <div className="relative">
+                                    <Trophy className="w-20 h-20 text-yellow-300 drop-shadow-md" />
+                                    <PartyPopper className="w-12 h-12 text-white absolute -top-4 -right-4 animate-bounce" />
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <Frown className="w-20 h-20 text-white drop-shadow-md" />
+                                    <CloudRain className="w-12 h-12 text-slate-200 absolute -top-4 -right-4 animate-pulse" />
+                                </div>
+                            )}
+                        </div>
+                        <h2 className="text-4xl font-black tracking-tight drop-shadow-sm">{feedbackAnimation.text}</h2>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         {/* Header */}
-        <div className="glass-heavy border-b border-white/20 shadow-sm backdrop-blur-xl rounded-[0_0_2rem_2rem] mb-4 shrink-0">
+        <div className="glass-heavy border-b border-white/20 shadow-lg backdrop-blur-xl rounded-[0_0_2.5rem_2.5rem] mb-6 shrink-0 z-20">
             <div className="p-4 pt-6">
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white">قائمة الطلاب</h1>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight drop-shadow-sm">قائمة الطلاب</h1>
                     <div className="flex gap-2">
-                        <button onClick={() => setShowManualAddModal(true)} className="w-10 h-10 rounded-full glass-icon text-indigo-600 dark:text-indigo-400 active:scale-95 transition-transform" title="إضافة طالب">
+                        <button onClick={() => setShowManualAddModal(true)} className="w-10 h-10 rounded-2xl glass-icon text-indigo-600 dark:text-indigo-400 active:scale-95 transition-all shadow-md hover:shadow-indigo-500/20 hover:scale-105 border border-white/20" title="إضافة طالب">
                             <UserPlus className="w-5 h-5"/>
                         </button>
-                        <button onClick={() => setShowImportModal(true)} className="w-10 h-10 rounded-full glass-icon text-emerald-600 dark:text-emerald-400 active:scale-95 transition-transform" title="استيراد Excel">
+                        <button onClick={() => setShowImportModal(true)} className="w-10 h-10 rounded-2xl glass-icon text-emerald-600 dark:text-emerald-400 active:scale-95 transition-all shadow-md hover:shadow-emerald-500/20 hover:scale-105 border border-white/20" title="استيراد Excel">
                             <Upload className="w-5 h-5"/>
                         </button>
-                        <button onClick={handleBatchPrintCertificates} disabled={isGeneratingPdf} className="w-10 h-10 rounded-full glass-icon text-amber-600 dark:text-amber-400 active:scale-95 transition-transform" title="طباعة شهادات جماعية">
-                            {isGeneratingPdf ? <Loader2 className="w-5 h-5 animate-spin"/> : <Printer className="w-5 h-5"/>}
-                        </button>
-                        <button onClick={pickRandomStudent} className="w-10 h-10 rounded-full glass-icon text-purple-600 dark:text-purple-400 active:scale-95 transition-transform" title="اختيار عشوائي">
+                        
+                        <button onClick={pickRandomStudent} className="w-10 h-10 rounded-2xl glass-icon text-purple-600 dark:text-purple-400 active:scale-95 transition-all shadow-md hover:shadow-purple-500/20 hover:scale-105 border border-white/20" title="اختيار عشوائي">
                             <Sparkles className="w-5 h-5"/>
-                        </button>
-                        <button onClick={handlePrintPdfReport} disabled={isGeneratingPdf} className="w-10 h-10 rounded-full glass-icon text-blue-600 dark:text-blue-400 active:scale-95 transition-transform" title="تقرير شامل">
-                            <FileSpreadsheet className="w-5 h-5"/>
                         </button>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-[65%]">
-                        <button onClick={() => setSelectedClass('all')} className={`px-4 py-2 text-xs font-bold whitespace-nowrap transition-all rounded-xl border ${selectedClass === 'all' ? 'bg-indigo-600 text-white border-transparent' : 'glass-card border-white/20'}`}>الكل</button>
+                        <button onClick={() => setSelectedClass('all')} className={`px-4 py-2.5 text-xs font-black whitespace-nowrap transition-all rounded-xl border shadow-sm ${selectedClass === 'all' ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/30' : 'glass-card border-white/20 hover:bg-white/10'}`}>الكل</button>
                         {classes.map(c => (
-                            <button key={c} onClick={() => setSelectedClass(c)} className={`px-4 py-2 text-xs font-bold whitespace-nowrap transition-all rounded-xl border ${selectedClass === c ? 'bg-indigo-600 text-white border-transparent' : 'glass-card border-white/20'}`}>{c}</button>
+                            <button key={c} onClick={() => setSelectedClass(c)} className={`px-4 py-2.5 text-xs font-black whitespace-nowrap transition-all rounded-xl border shadow-sm ${selectedClass === c ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/30' : 'glass-card border-white/20 hover:bg-white/10'}`}>{c}</button>
                         ))}
-                        <button onClick={() => setShowAddClassModal(true)} className="px-3 py-2 rounded-xl glass-card border border-white/20 hover:bg-white/10"><Plus className="w-4 h-4"/></button>
+                        <button onClick={() => setShowAddClassModal(true)} className="px-3 py-2 rounded-xl glass-card border border-white/20 hover:bg-white/10 active:scale-95"><Plus className="w-4 h-4"/></button>
                     </div>
                     <div className="relative flex-1">
-                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
                         <input 
                             type="text" 
                             placeholder="بحث..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full glass-input rounded-xl py-2 pr-9 pl-3 text-xs font-bold outline-none border border-white/10 focus:border-indigo-500" 
+                            className="w-full glass-input rounded-xl py-2.5 pr-9 pl-3 text-xs font-bold outline-none border border-white/10 focus:border-indigo-500 shadow-inner" 
                         />
                     </div>
                 </div>
@@ -479,12 +313,11 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
         {/* Student List Content */}
         <div className="flex-1 overflow-y-auto px-4 custom-scrollbar">
             {filteredStudents.length > 0 ? (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4 pb-20">
                     {filteredStudents.map(student => (
                         <StudentItem 
                             key={student.id} 
                             student={student} 
-                            onViewReport={onViewReport} 
                             onAction={handleAction} 
                             currentSemester={currentSemester}
                         />
