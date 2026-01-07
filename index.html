@@ -6,25 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>راصد</title>
     
-    <!-- Tailwind CSS (Runtime) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Generated CSS (Offline) -->
     <link rel="stylesheet" href="./index.css">
     
-    <!-- PDF Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
-    <!-- PDF.js for Viewing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
-
-    <!-- 
-       ملاحظة للبناء (Build Note):
-       تم إزالة Import Map لأن عملية البناء (npm run build) ستقوم بدمج 
-       React وجميع المكتبات داخل ملف index.js المحلي.
-       هذا يجعل التطبيق يعمل بدون إنترنت.
-    -->
+    <!-- No external scripts here. All logic is bundled into index.js or provided via package.json deps -->
 <script type="importmap">
 {
   "imports": {
@@ -40,6 +25,8 @@
     "@capacitor/filesystem": "https://esm.sh/@capacitor/filesystem@^8.0.0",
     "@capacitor/share": "https://esm.sh/@capacitor/share@^8.0.0",
     "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "html2pdf.js": "https://esm.sh/html2pdf.js@^0.13.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@^5.4.530",
     "@capacitor/clipboard": "https://esm.sh/@capacitor/clipboard@^8.0.0"
   }
 }
