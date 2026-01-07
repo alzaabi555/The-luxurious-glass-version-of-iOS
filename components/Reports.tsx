@@ -8,8 +8,8 @@ import Modal from './Modal';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-// Removed explicit html2canvas/jspdf imports in favor of html2pdf global
-declare var html2pdf: any;
+import { Browser } from '@capacitor/browser';
+import html2pdf from 'html2pdf.js';
 
 const Reports: React.FC = () => {
   const { students, setStudents, classes, teacherInfo, setTeacherInfo, currentSemester, assessmentTools, certificateSettings, setCertificateSettings } = useApp();
@@ -128,74 +128,60 @@ const Reports: React.FC = () => {
           pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } 
       };
 
-      if (typeof html2pdf !== 'undefined') {
-          try {
-              const worker = html2pdf().set(opt).from(container).toPdf();
-              
-              if (Capacitor.isNativePlatform()) {
-                  const pdfBase64 = await worker.output('datauristring');
-                  const base64Data = pdfBase64.split(',')[1];
-                  const result = await Filesystem.writeFile({ path: filename, data: base64Data, directory: Directory.Cache });
-                  await Share.share({ title: filename, url: result.uri });
-              } else { 
-                  worker.save(); 
-              }
-          } catch (e) { 
-              console.error('PDF Error:', e);
-              alert('خطأ في إنشاء PDF'); 
-          } finally { 
-              if (document.body.contains(container)) document.body.removeChild(container);
-              setIsGeneratingPdf(false); 
+      try {
+          const worker = html2pdf().set(opt).from(container).toPdf();
+          
+          if (Capacitor.isNativePlatform()) {
+              const pdfBase64 = await worker.output('datauristring');
+              const base64Data = pdfBase64.split(',')[1];
+              const result = await Filesystem.writeFile({ path: filename, data: base64Data, directory: Directory.Cache });
+              await Share.share({ title: filename, url: result.uri });
+          } else { 
+              worker.save(); 
           }
-      } else {
-          alert('مكتبة PDF غير متوفرة');
-          setIsGeneratingPdf(false);
+      } catch (e) { 
+          console.error('PDF Error:', e);
+          alert('خطأ في إنشاء PDF'); 
+      } finally { 
+          if (document.body.contains(container)) document.body.removeChild(container);
+          setIsGeneratingPdf(false); 
       }
   };
 
-  // --- PRINT LOGIC UPDATED (Dynamic based on existing tools) ---
+  // --- PRINT LOGIC UPDATED ---
   const handlePrintGradeReport = async () => {
       if (filteredStudentsForGrades.length === 0) return alert('لا يوجد طلاب في هذا الفصل');
       
       const finalExamName = "الامتحان النهائي";
-      
-      // Separate tools
       const continuousTools = assessmentTools.filter(t => t.name.trim() !== finalExamName);
       const finalTool = assessmentTools.find(t => t.name.trim() === finalExamName);
 
-      // Generate Headers
       let headerHtml = `
         <th style="width:30px;">م</th>
         <th>اسم الطالب</th>
       `;
       
-      // Continuous Assessment Columns (Orange/Beige background style)
       continuousTools.forEach(t => {
           headerHtml += `<th style="background-color:#ffedd5 !important; color:#000 !important;">${t.name}</th>`;
       });
 
-      // Sum 60 Column (Blue/Green background style)
       headerHtml += `
         <th style="width:60px; background-color:#dbeafe !important; color:#000 !important; border-right: 2px solid #000 !important;">المجموع (60)</th>
       `;
 
-      // Final Exam Column (Only if it exists in tools)
       if (finalTool) {
           headerHtml += `<th style="width:70px; background-color:#fce7f3 !important; color:#000 !important;">${finalTool.name} (40)</th>`;
       }
 
-      // Total Score (Grey/Green style)
       headerHtml += `
         <th style="width:60px; background-color:#e5e7eb !important; color:#000 !important;">المجموع الكلي</th>
         <th style="width:40px;">التقدير</th>
       `;
 
-      // Generate Rows
       let rowsHtml = '';
       
       filteredStudentsForGrades.forEach((s, i) => {
           const semGrades = (s.grades || []).filter(g => (g.semester || '1') === currentSemester);
-          
           let continuousSum = 0;
           let continuousCells = '';
 
@@ -206,10 +192,8 @@ const Reports: React.FC = () => {
               continuousCells += `<td>${g ? g.score : '-'}</td>`;
           });
 
-          // Final Exam
           const finalExamGrade = finalTool ? semGrades.find(gr => gr.category.trim() === finalTool.name.trim()) : null;
           const finalExamScore = finalExamGrade ? Number(finalExamGrade.score) : 0;
-          
           const totalScore = continuousSum + finalExamScore;
 
           rowsHtml += `
@@ -257,14 +241,8 @@ const Reports: React.FC = () => {
             </div>
             
             <table>
-                <thead>
-                    <tr>
-                        ${headerHtml}
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rowsHtml}
-                </tbody>
+                <thead><tr>${headerHtml}</tr></thead>
+                <tbody>${rowsHtml}</tbody>
             </table>
             
             <div style="margin-top:30px; display:flex; justify-content:space-between; padding:0 40px; font-weight:bold; color:#000;">
@@ -277,7 +255,7 @@ const Reports: React.FC = () => {
       await generateAndSharePDF(html, `Grades_Record_${gradesClass}.pdf`, true);
   };
 
-  // --- 2. CERTIFICATES PRINT LOGIC (FIXED) ---
+  // --- CERTIFICATES PRINT LOGIC ---
   const printCertificates = async () => {
       const targets = filteredStudentsForCert.filter(s => selectedCertStudents.includes(s.id));
       if (targets.length === 0) return;
@@ -285,24 +263,27 @@ const Reports: React.FC = () => {
       let pagesHtml = '';
       
       targets.forEach((s) => {
-          let body = certificateSettings.bodyText.replace('الطالب', s.name).replace('الطالبة', s.name);
+          // Robust check for placeholder using regex to ensure we match all variations
+          const placeholderRegex = /(الطالبة|الطالب)/g;
+          const hasPlaceholder = placeholderRegex.test(certificateSettings.bodyText);
+          
+          let body = certificateSettings.bodyText.replace(placeholderRegex, `<span style="font-weight:900; color:#000;">${s.name}</span>`);
           
           const bgStyle = certificateSettings.backgroundImage 
             ? `background-image: url('${certificateSettings.backgroundImage}'); background-size: cover; background-position: center;` 
             : `background-color: #ffffff; border: 15px double #059669;`;
 
-          // Certificate Header Logic (Vertical Stack Centered)
           const headerHtml = `
-            <div style="width:100%; text-align:center; display:flex; flex-direction:column; align-items:center; margin-bottom:20px; color:#000;">
-                ${teacherInfo.ministryLogo ? `<img src="${teacherInfo.ministryLogo}" style="height:90px; width:auto; object-fit:contain; margin-bottom:15px;" />` : ''}
-                <h3 style="font-weight:bold; font-size:16px; margin:2px;">سلطنة عمان</h3>
-                <h3 style="font-weight:bold; font-size:16px; margin:2px;">وزارة التربية والتعليم</h3>
-                <h3 style="font-weight:bold; font-size:16px; margin:2px;">مدرسة ${teacherInfo.school}</h3>
+            <div style="width:100%; text-align:center; display:flex; flex-direction:column; align-items:center; margin-bottom:15px; color:#000;">
+                ${teacherInfo.ministryLogo ? `<img src="${teacherInfo.ministryLogo}" style="height:80px; width:auto; object-fit:contain; margin-bottom:10px;" />` : ''}
+                <h3 style="font-weight:bold; font-size:14px; margin:1px;">سلطنة عمان</h3>
+                <h3 style="font-weight:bold; font-size:14px; margin:1px;">وزارة التربية والتعليم</h3>
+                <h3 style="font-weight:bold; font-size:14px; margin:1px;">مدرسة ${teacherInfo.school}</h3>
             </div>
           `;
 
           pagesHtml += `
-            <div class="force-print-style" style="width:100%; height:100vh; position:relative; ${bgStyle} padding:40px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; text-align:center; page-break-after: always; color:#000000 !important; background-color:#fff;">
+            <div class="force-print-style" style="width:100%; height:100vh; position:relative; ${bgStyle} padding:20px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; text-align:center; page-break-after: always; color:#000000 !important; background-color:#fff;">
                 ${!certificateSettings.backgroundImage ? `
                     <div style="position:absolute; top:25px; left:25px; right:25px; bottom:25px; border: 2px solid #059669; pointer-events:none;"></div>
                     <div style="position:absolute; top:20px; left:20px; width:50px; height:50px; border-top:5px solid #059669; border-left:5px solid #059669;"></div>
@@ -311,27 +292,26 @@ const Reports: React.FC = () => {
                     <div style="position:absolute; bottom:20px; right:20px; width:50px; height:50px; border-bottom:5px solid #059669; border-right:5px solid #059669;"></div>
                 ` : ''}
                 
-                <div style="z-index:10; width:90%; height:100%; display:flex; flex-direction:column; justify-content:center; background:rgba(255,255,255,0.92); padding:40px; border-radius:30px; box-shadow:none; color: #000000 !important;">
-                    
+                <div style="z-index:10; width:95%; height:100%; display:flex; flex-direction:column; justify-content:center; background:rgba(255,255,255,0.92); padding:30px; border-radius:30px; box-shadow:none; color: #000000 !important;">
                     ${headerHtml}
-
                     <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <h1 style="font-size:48px; color:#047857 !important; margin-bottom:20px; font-weight:900; font-family:'Tajawal', serif;">${certificateSettings.title}</h1>
-                        <p style="font-size:24px; line-height:1.8; margin-bottom:20px; font-weight:bold; color:#374151 !important;">${body}</p>
-                        <h2 style="font-size:42px; color:#000000 !important; margin:15px 0; font-weight:900; text-decoration:underline; text-decoration-color:#059669; text-underline-offset: 8px;">${s.name}</h2>
+                        <h1 style="font-size:42px; color:#047857 !important; margin-bottom:20px; font-weight:900; font-family:'Tajawal', serif;">${certificateSettings.title}</h1>
+                        <p style="font-size:22px; line-height:1.8; margin-bottom:20px; font-weight:bold; color:#374151 !important;">${body}</p>
+                        
+                        ${!hasPlaceholder ? `<h2 style="font-size:38px; color:#000000 !important; margin:10px 0; font-weight:900; text-decoration:underline; text-decoration-color:#059669; text-underline-offset: 8px;">${s.name}</h2>` : ''}
                     </div>
                     
-                    <div style="margin-top:40px; display:flex; justify-content:space-between; width:100%; padding:0 20px; color: #000000 !important; align-items:flex-end;">
+                    <div style="margin-top:30px; display:flex; justify-content:space-between; width:100%; padding:0 10px; color: #000000 !important; align-items:flex-end;">
                         <div style="text-align:center; width:30%;">
-                            <p style="font-size:18px; color:#000000 !important; margin-bottom:40px; font-weight:bold;">معلم المادة</p>
-                            <p style="font-size:22px; font-weight:900; color:#000000 !important;">${teacherInfo.name}</p>
+                            <p style="font-size:16px; color:#000000 !important; margin-bottom:40px; font-weight:bold;">معلم المادة</p>
+                            <p style="font-size:18px; font-weight:900; color:#000000 !important;">${teacherInfo.name}</p>
                         </div>
                         <div style="text-align:center; width:40%;">
-                            ${teacherInfo.stamp ? `<img src="${teacherInfo.stamp}" style="width:120px; opacity:0.8; mix-blend-mode:multiply; transform: rotate(-10deg);" />` : ''}
+                            ${teacherInfo.stamp ? `<img src="${teacherInfo.stamp}" style="width:110px; opacity:0.8; mix-blend-mode:multiply; transform: rotate(-10deg);" />` : ''}
                         </div>
                         <div style="text-align:center; width:30%;">
-                            <p style="font-size:18px; color:#000000 !important; margin-bottom:40px; font-weight:bold;">مدير المدرسة</p>
-                            <p style="font-size:22px; font-weight:900; color:#000000 !important;">....................</p>
+                            <p style="font-size:16px; color:#000000 !important; margin-bottom:40px; font-weight:bold;">مدير المدرسة</p>
+                            <p style="font-size:18px; font-weight:900; color:#000000 !important;">....................</p>
                         </div>
                     </div>
                 </div>
@@ -353,14 +333,10 @@ const Reports: React.FC = () => {
     }
   };
 
-  // --- 3. SUMMON LETTER PRINT LOGIC (FIXED) ---
+  // --- 3. SUMMON LETTER PRINT LOGIC ---
   const handlePrintSummon = async () => {
       const studentName = availableStudentsForSummon.find(s=>s.id===summonStudentId)?.name || '';
-      
-      if (!studentName) {
-          alert('يرجى اختيار الطالب أولاً');
-          return;
-      }
+      if (!studentName) { alert('يرجى اختيار الطالب أولاً'); return; }
 
       const proceduresHtml = takenProcedures.length > 0 
         ? `<div style="margin-top:20px; text-align:right; border:1px dashed #000; padding:15px; border-radius:10px;">
@@ -373,8 +349,6 @@ const Reports: React.FC = () => {
 
       const html = `
         <div class="force-print-style" style="padding:50px; font-family:'Tajawal', serif; color:#000000 !important; background:#ffffff !important; direction:rtl; text-align:right; width:100%; height:100%;">
-            
-            <!-- HEADER (CENTERED LOGO) -->
             <div style="text-align:center; margin-bottom:40px;">
                 ${teacherInfo.ministryLogo ? `<img src="${teacherInfo.ministryLogo}" style="width:60px; height:auto; margin:0 auto 15px auto; display:block;" />` : ''}
                 <h3 style="font-weight:bold; font-size:16px; margin:5px; color:#000000 !important;">سلطنة عمان</h3>
@@ -415,11 +389,9 @@ const Reports: React.FC = () => {
                     <p style="font-weight:bold; font-size:18px; margin-bottom:40px; color:#000000 !important;">معلم المادة</p>
                     <p style="font-size:18px; color:#000000 !important;">${teacherInfo.name}</p>
                 </div>
-                
                 <div style="text-align:center; width:40%; display: flex; justify-content: center; align-items: center;">
                     ${teacherInfo.stamp ? `<img src="${teacherInfo.stamp}" style="width:130px; opacity:0.8; mix-blend-mode:multiply; transform: rotate(-10deg);" />` : ''}
                 </div>
-
                 <div style="text-align:center; width:30%;">
                     <p style="font-weight:bold; font-size:18px; margin-bottom:40px; color:#000000 !important;">مدير المدرسة</p>
                     <p style="font-size:18px; color:#000000 !important;">.........................</p>
@@ -432,357 +404,127 @@ const Reports: React.FC = () => {
   };
 
   const handleSendSummonWhatsApp = async () => {
-      const student = availableStudentsForSummon.find(s=>s.id===summonStudentId);
-      if(!student || !student.parentPhone) {
-          alert('لا يوجد رقم ولي أمر مسجل لهذا الطالب');
-          return;
-      }
-      const msg = encodeURIComponent(`السلام عليكم، نود استدعاء ولي أمر الطالب ${student.name} للحضور للمدرسة يوم ${summonDate} الساعة ${summonTime}. السبب: ${getReasonText()}`);
-      let phone = student.parentPhone.replace(/[^0-9]/g, '');
-      if(phone.length === 8) phone = '968' + phone;
-      const url = `https://api.whatsapp.com/send?phone=${phone}&text=${msg}`;
-      if (Capacitor.isNativePlatform()) {
-          window.open(url, '_blank');
-      } else {
-          window.open(url, '_blank');
-      }
+    const student = availableStudentsForSummon.find(s => s.id === summonStudentId);
+    if (!student || !student.parentPhone) {
+        alert('لا يوجد رقم هاتف مسجل لولي الأمر');
+        return;
+    }
+
+    let cleanPhone = student.parentPhone.replace(/[^0-9]/g, '');
+    if (!cleanPhone || cleanPhone.length < 5) {
+        alert('رقم الهاتف غير صحيح');
+        return;
+    }
+    
+    if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
+    if (cleanPhone.length === 8) cleanPhone = '968' + cleanPhone;
+    else if (cleanPhone.length === 9 && cleanPhone.startsWith('0')) cleanPhone = '968' + cleanPhone.substring(1);
+
+    const msg = encodeURIComponent(`السلام عليكم، ولي أمر الطالب ${student.name}.\nنود إفادتكم بضرورة الحضور للمدرسة يوم ${summonDate} الساعة ${summonTime}.\nالسبب: ${getReasonText()}`);
+
+    if (window.electron) {
+        window.electron.openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
+    } else {
+        const universalUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`;
+        try {
+            if (Capacitor.isNativePlatform()) {
+                await Browser.open({ url: universalUrl });
+            } else {
+                window.open(universalUrl, '_blank');
+            }
+        } catch (e) {
+            window.open(universalUrl, '_blank');
+        }
+    }
   };
 
-  if (viewingStudent) {
-      return (
-          <StudentReport 
-              student={viewingStudent}
-              onUpdateStudent={handleUpdateStudent}
-              currentSemester={currentSemester}
-              teacherInfo={teacherInfo}
-              onBack={() => setViewingStudent(null)}
-          />
-      );
-  }
-
   const tabItems = [
-      { id: 'student_report', label: 'تقرير طالب', icon: FileText, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-      { id: 'grades_record', label: 'سجل الدرجات', icon: FileSpreadsheet, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-      { id: 'certificates', label: 'شهادات التفوق', icon: Award, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-      { id: 'summon', label: 'استدعاء ولي أمر', icon: FileWarning, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+    { id: 'student_report', label: 'تقرير طالب', icon: User, color: 'text-indigo-400', bg: 'bg-indigo-900/20', border: 'border-indigo-500/30' },
+    { id: 'grades_record', label: 'سجل الدرجات', icon: BarChart3, color: 'text-amber-400', bg: 'bg-amber-900/20', border: 'border-amber-500/30' },
+    { id: 'certificates', label: 'الشهادات', icon: Award, color: 'text-emerald-400', bg: 'bg-emerald-900/20', border: 'border-emerald-500/30' },
+    { id: 'summon', label: 'استدعاء ولي أمر', icon: FileWarning, color: 'text-rose-400', bg: 'bg-rose-900/20', border: 'border-rose-500/30' },
   ];
+  
+  if (viewingStudent) {
+      return <StudentReport student={viewingStudent} onUpdateStudent={handleUpdateStudent} currentSemester={currentSemester} teacherInfo={teacherInfo} onBack={() => setViewingStudent(null)} />;
+  }
 
   return (
     <div className="flex flex-col w-full max-w-5xl mx-auto space-y-6 pb-20">
-      
       <div className="flex items-center gap-4 pt-4 px-2 mb-2">
-        <div className="w-14 h-14 glass-icon rounded-2xl flex items-center justify-center text-rose-500 shadow-lg border border-rose-500/20">
-            <FileSpreadsheet size={30} />
-        </div>
-        <div>
-            <h2 className="text-3xl font-black text-white tracking-tight">مركز التقارير</h2>
-            <p className="text-gray-400 text-xs font-bold mt-1">طباعة الكشوفات والشهادات والاستدعاءات</p>
-        </div>
+        <div className="w-14 h-14 glass-icon rounded-2xl flex items-center justify-center text-rose-500 shadow-lg border border-rose-500/20"><FileSpreadsheet size={30} /></div>
+        <div><h2 className="text-3xl font-black text-white tracking-tight">مركز التقارير</h2><p className="text-gray-400 text-xs font-bold mt-1">طباعة الكشوفات والشهادات والاستدعاءات</p></div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 px-1">
         {tabItems.map((item) => (
-            <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as any)}
-                className={`
-                    flex items-center gap-4 p-4 rounded-[1.5rem] transition-all duration-300 border group shimmer-hover
-                    ${activeTab === item.id 
-                        ? 'glass-heavy border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)] scale-[1.02]' 
-                        : 'glass-card border-white/5 hover:bg-white/5 opacity-70 hover:opacity-100'
-                    }
-                `}
-            >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border backdrop-blur-xl transition-all duration-500 group-hover:scale-110 ${activeTab === item.id ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : `${item.bg} ${item.color} ${item.border}`}`}>
-                    <item.icon size={24} strokeWidth={2} />
-                </div>
-                <div className="text-right">
-                     <span className={`block font-black text-sm transition-colors ${activeTab === item.id ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>
-                        {item.label}
-                    </span>
-                </div>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex items-center gap-4 p-4 rounded-[1.5rem] transition-all duration-300 border group shimmer-hover ${activeTab === item.id ? 'glass-heavy border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)] scale-[1.02]' : 'glass-card border-white/5 hover:bg-white/5 opacity-70 hover:opacity-100'}`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border backdrop-blur-xl transition-all duration-500 group-hover:scale-110 ${activeTab === item.id ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : `${item.bg} ${item.color} ${item.border}`}`}><item.icon size={24} strokeWidth={2} /></div>
+                <div className="text-right"><span className={`block font-black text-sm transition-colors ${activeTab === item.id ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>{item.label}</span></div>
             </button>
         ))}
       </div>
 
       <div className="glass-card p-6 md:p-8 rounded-[2.5rem] border border-white/10 min-h-[400px] shadow-xl relative overflow-hidden transition-all duration-500 bg-[#1f2937]">
-        
         {activeTab === 'student_report' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                 <div className="pb-4 border-b border-white/10 flex items-center gap-3">
-                    <div className="p-2 bg-indigo-900/30 rounded-xl text-indigo-400"><User size={20}/></div>
-                    <div>
-                        <h3 className="font-black text-lg text-white">تقرير الطالب الشامل</h3>
-                        <p className="text-gray-400 text-xs font-bold">عرض وطباعة تقرير مفصل</p>
-                    </div>
-                </div>
-
+                 <div className="pb-4 border-b border-white/10 flex items-center gap-3"><div className="p-2 bg-indigo-900/30 rounded-xl text-indigo-400"><User size={20}/></div><div><h3 className="font-black text-lg text-white">تقرير الطالب الشامل</h3><p className="text-gray-400 text-xs font-bold">عرض وطباعة تقرير مفصل</p></div></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label>
-                        <div className="relative">
-                            <select value={stClass} onChange={(e) => setStClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">
-                                {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label>
-                        <div className="relative">
-                             <select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">
-                                <option value="">اختر طالباً...</option>
-                                {filteredStudentsForStudentTab.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={stClass} onChange={(e) => setStClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label><div className="relative"><select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="">اختر طالباً...</option>{filteredStudentsForStudentTab.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
                 </div>
-                
-                <div className="flex flex-col md:flex-row gap-4 pt-6 justify-end border-t border-white/10 mt-4">
-                    <button onClick={handleViewStudentReport} disabled={!selectedStudentId} className="bg-indigo-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all">
-                        <FileText size={18} /> معاينة التقرير الفردي
-                    </button>
-                </div>
+                <div className="flex flex-col md:flex-row gap-4 pt-6 justify-end border-t border-white/10 mt-4"><button onClick={handleViewStudentReport} disabled={!selectedStudentId} className="bg-indigo-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all"><FileText size={18} /> معاينة التقرير الفردي</button></div>
             </div>
         )}
-
         {activeTab === 'grades_record' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="pb-4 border-b border-white/10 flex items-center gap-3">
-                    <div className="p-2 bg-amber-900/30 rounded-xl text-amber-400"><BarChart3 size={20}/></div>
-                    <div>
-                        <h3 className="font-black text-lg text-white">سجل الدرجات (الفصل {currentSemester})</h3>
-                        <p className="text-gray-400 text-xs font-bold">طباعة كشف درجات كامل للفصل المختار</p>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label>
-                    <div className="relative">
-                        <select value={gradesClass} onChange={(e) => setGradesClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">
-                            <option value="all">جميع الفصول</option>
-                            {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                </div>
-                <div className="flex justify-end pt-6">
-                    <button onClick={handlePrintGradeReport} disabled={isGeneratingPdf} className="bg-amber-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/30 hover:bg-amber-600 active:scale-95 transition-all w-full md:w-auto justify-center">
-                        {isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Printer size={18} />} طباعة السجل
-                    </button>
-                </div>
+                <div className="pb-4 border-b border-white/10 flex items-center gap-3"><div className="p-2 bg-amber-900/30 rounded-xl text-amber-400"><BarChart3 size={20}/></div><div><h3 className="font-black text-lg text-white">سجل الدرجات</h3><p className="text-gray-400 text-xs font-bold">طباعة كشف درجات كامل</p></div></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={gradesClass} onChange={(e) => setGradesClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="all">جميع الفصول</option>{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                <div className="flex justify-end pt-6"><button onClick={handlePrintGradeReport} disabled={isGeneratingPdf} className="bg-amber-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/30 hover:bg-amber-600 active:scale-95 transition-all w-full md:w-auto justify-center">{isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Printer size={18} />} طباعة السجل</button></div>
             </div>
         )}
-
         {activeTab === 'certificates' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex justify-between items-start pb-4 border-b border-white/10">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-emerald-900/30 rounded-xl text-emerald-400"><Award size={20}/></div>
-                        <div>
-                            <h3 className="font-black text-lg text-white">شهادات التفوق</h3>
-                            <p className="text-gray-400 text-xs font-bold">طباعة شهادات تقدير للطلاب المختارين</p>
-                        </div>
-                    </div>
-                    <button onClick={() => setShowCertSettingsModal(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white" title="إعدادات الشهادة">
-                        <Settings className="w-5 h-5" />
-                    </button>
-                </div>
+                <div className="flex justify-between items-start pb-4 border-b border-white/10"><div className="flex items-center gap-3"><div className="p-2 bg-emerald-900/30 rounded-xl text-emerald-400"><Award size={20}/></div><div><h3 className="font-black text-lg text-white">شهادات التفوق</h3><p className="text-gray-400 text-xs font-bold">طباعة شهادات تقدير</p></div></div><button onClick={() => setShowCertSettingsModal(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white"><Settings className="w-5 h-5" /></button></div>
                 <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label>
-                        <div className="relative">
-                            <select value={certClass} onChange={(e) => { setCertClass(e.target.value); setSelectedCertStudents([]); }} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">
-                                {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center px-2">
-                            <label className="text-[10px] font-black text-gray-400">تحديد الطلاب ({selectedCertStudents.length})</label>
-                            <button onClick={selectAllCertStudents} className="text-[10px] text-emerald-400 font-bold hover:underline">
-                                {selectedCertStudents.length === filteredStudentsForCert.length ? 'إلغاء الكل' : 'تحديد الكل'}
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
-                            {filteredStudentsForCert.map(s => (
-                                <button key={s.id} onClick={() => toggleCertStudent(s.id)} className={`p-3 rounded-xl border text-[10px] font-bold transition-all flex items-center justify-between group ${selectedCertStudents.includes(s.id) ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' : 'glass-card text-white/70 border-white/10 hover:bg-white/10'}`}>
-                                    {s.name}
-                                    {selectedCertStudents.includes(s.id) && <Check size={14} className="bg-white/20 rounded-full p-0.5" />}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={certClass} onChange={(e) => { setCertClass(e.target.value); setSelectedCertStudents([]); }} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    <div className="space-y-2"><div className="flex justify-between items-center px-2"><label className="text-[10px] font-black text-gray-400">تحديد الطلاب ({selectedCertStudents.length})</label><button onClick={selectAllCertStudents} className="text-[10px] text-emerald-400 font-bold hover:underline">{selectedCertStudents.length === filteredStudentsForCert.length ? 'إلغاء الكل' : 'تحديد الكل'}</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">{filteredStudentsForCert.map(s => (<button key={s.id} onClick={() => toggleCertStudent(s.id)} className={`p-3 rounded-xl border text-[10px] font-bold transition-all flex items-center justify-between group ${selectedCertStudents.includes(s.id) ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' : 'glass-card text-white/70 border-white/10 hover:bg-white/10'}`}>{s.name}{selectedCertStudents.includes(s.id) && <Check size={14} className="bg-white/20 rounded-full p-0.5" />}</button>))}</div></div>
                 </div>
-                <div className="flex justify-end pt-6 border-t border-white/10 mt-2">
-                    <button onClick={printCertificates} disabled={isGeneratingPdf || selectedCertStudents.length === 0} className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 active:scale-95 transition-all w-full md:w-auto justify-center">
-                        {isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Award size={18} />} طباعة الشهادات
-                    </button>
-                </div>
+                <div className="flex justify-end pt-6 border-t border-white/10 mt-2"><button onClick={printCertificates} disabled={isGeneratingPdf || selectedCertStudents.length === 0} className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 active:scale-95 transition-all w-full md:w-auto justify-center">{isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Award size={18} />} طباعة الشهادات</button></div>
             </div>
         )}
-
         {activeTab === 'summon' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="pb-4 border-b border-white/10 flex items-center gap-3">
-                    <div className="p-2 bg-rose-900/30 rounded-xl text-rose-400"><FileWarning size={20}/></div>
-                    <div>
-                        <h3 className="font-black text-lg text-white">استدعاء ولي أمر</h3>
-                        <p className="text-gray-400 text-xs font-bold">إنشاء خطاب رسمي ومشاركته مع تحديد الإجراءات</p>
-                    </div>
-                </div>
-                
+                <div className="pb-4 border-b border-white/10 flex items-center gap-3"><div className="p-2 bg-rose-900/30 rounded-xl text-rose-400"><FileWarning size={20}/></div><div><h3 className="font-black text-lg text-white">استدعاء ولي أمر</h3><p className="text-gray-400 text-xs font-bold">إنشاء خطاب رسمي</p></div></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 mr-2">الفصل</label>
-                        <div className="relative">
-                            <select value={summonClass} onChange={(e) => setSummonClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">
-                                {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label>
-                        <div className="relative">
-                            <select value={summonStudentId} onChange={(e) => setSummonStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">
-                                <option value="">اختر...</option>
-                                {availableStudentsForSummon.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل</label><div className="relative"><select value={summonClass} onChange={(e) => setSummonClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label><div className="relative"><select value={summonStudentId} onChange={(e) => setSummonStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="">اختر...</option>{availableStudentsForSummon.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
                 </div>
-
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 mr-2">سبب الاستدعاء</label>
-                    <div className="flex flex-wrap gap-2">
-                        {[{ id: 'absence', label: 'تكرار الغياب' }, { id: 'truant', label: 'تسرب حصص' }, { id: 'behavior', label: 'سلوكيات' }, { id: 'level', label: 'تدني مستوى' }, { id: 'other', label: 'آخر ..' }].map((reason) => (
-                            <button key={reason.id} onClick={() => setReasonType(reason.id)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all border ${reasonType === reason.id ? 'bg-rose-600 text-white border-rose-600 shadow-md transform scale-105' : 'glass-input text-gray-300 border-transparent hover:bg-white/10'}`}>{reason.label}</button>
-                        ))}
-                    </div>
-                    {reasonType === 'other' && (
-                        <textarea value={customReason} onChange={(e) => setCustomReason(e.target.value)} placeholder="اكتب السبب هنا..." className="w-full p-4 glass-input rounded-2xl text-sm mt-2 resize-none h-24 outline-none border border-white/10 focus:border-rose-500 transition-colors text-white" />
-                    )}
-                </div>
-
-                <div className="space-y-2 border-t border-white/10 pt-4">
-                    <label className="text-[10px] font-black text-gray-400 mr-2 flex items-center gap-2">
-                        <ListChecks className="w-3 h-3" />
-                        الإجراءات المتخذة مسبقاً (تظهر في الطباعة)
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {availableProcedures.map((proc) => (
-                            <button 
-                                key={proc} 
-                                onClick={() => toggleProcedure(proc)}
-                                className={`p-3 rounded-xl text-[10px] font-bold text-right transition-all border flex items-center justify-between ${takenProcedures.includes(proc) ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200' : 'glass-card border-white/5 text-gray-400 hover:bg-white/5'}`}
-                            >
-                                {proc}
-                                {takenProcedures.includes(proc) && <Check className="w-3 h-3 text-indigo-400" />}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">سبب الاستدعاء</label><div className="flex flex-wrap gap-2">{[{ id: 'absence', label: 'تكرار الغياب' }, { id: 'truant', label: 'تسرب حصص' }, { id: 'behavior', label: 'سلوكيات' }, { id: 'level', label: 'تدني مستوى' }, { id: 'other', label: 'آخر ..' }].map((reason) => (<button key={reason.id} onClick={() => setReasonType(reason.id)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all border ${reasonType === reason.id ? 'bg-rose-600 text-white border-rose-600 shadow-md transform scale-105' : 'glass-input text-gray-300 border-transparent hover:bg-white/10'}`}>{reason.label}</button>))}</div>{reasonType === 'other' && (<textarea value={customReason} onChange={(e) => setCustomReason(e.target.value)} placeholder="اكتب السبب هنا..." className="w-full p-4 glass-input rounded-2xl text-sm mt-2 resize-none h-24 outline-none border border-white/10 focus:border-rose-500 transition-colors text-white" />)}</div>
+                <div className="space-y-2 border-t border-white/10 pt-4"><label className="text-[10px] font-black text-gray-400 mr-2 flex items-center gap-2"><ListChecks className="w-3 h-3" /> الإجراءات المتخذة مسبقاً</label><div className="grid grid-cols-2 gap-2">{availableProcedures.map((proc) => (<button key={proc} onClick={() => toggleProcedure(proc)} className={`p-3 rounded-xl text-[10px] font-bold text-right transition-all border flex items-center justify-between ${takenProcedures.includes(proc) ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200' : 'glass-card border-white/5 text-gray-400 hover:bg-white/5'}`}>{proc}{takenProcedures.includes(proc) && <Check className="w-3 h-3 text-indigo-400" />}</button>))}</div></div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                      <div className="space-y-1"><label className="text-[10px] font-black text-gray-400 mr-2">تاريخ الإصدار</label><input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} className="w-full p-3 glass-input rounded-xl text-xs font-bold outline-none text-white bg-[#111827]" /></div>
                      <div className="space-y-1"><label className="text-[10px] font-black text-gray-400 mr-2">تاريخ الحضور</label><input type="date" value={summonDate} onChange={(e) => setSummonDate(e.target.value)} className="w-full p-3 glass-input rounded-xl text-xs font-bold outline-none text-white bg-[#111827]" /></div>
                      <div className="space-y-1"><label className="text-[10px] font-black text-gray-400 mr-2">وقت الحضور</label><input type="time" value={summonTime} onChange={(e) => setSummonTime(e.target.value)} className="w-full p-3 glass-input rounded-xl text-xs font-bold outline-none text-white bg-[#111827]" /></div>
                 </div>
-
-                <div className="flex gap-4 pt-6 border-t border-white/10 mt-2">
-                    <button 
-                        onClick={() => setShowSummonPreview(true)} 
-                        disabled={!summonStudentId} 
-                        className="flex-1 py-4 bg-[#374151] border border-gray-600 text-white rounded-2xl font-black text-xs shadow-lg hover:bg-[#4b5563] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        <Eye size={18} /> معاينة الخطاب
-                    </button>
-                    <button onClick={handleSendSummonWhatsApp} disabled={!summonStudentId} className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-black text-xs shadow-lg shadow-green-500/30 hover:bg-[#128C7E] transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95">
-                        <Share2 size={18} /> إرسال واتساب
-                    </button>
-                </div>
+                <div className="flex gap-4 pt-6 border-t border-white/10 mt-2"><button onClick={() => setShowSummonPreview(true)} disabled={!summonStudentId} className="flex-1 py-4 bg-[#374151] border border-gray-600 text-white rounded-2xl font-black text-xs shadow-lg hover:bg-[#4b5563] transition-all disabled:opacity-50 flex items-center justify-center gap-2"><Eye size={18} /> معاينة الخطاب</button><button onClick={handleSendSummonWhatsApp} disabled={!summonStudentId} className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-black text-xs shadow-lg shadow-green-500/30 hover:bg-[#128C7E] transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"><Share2 size={18} /> إرسال واتساب</button></div>
             </div>
         )}
-
       </div>
 
       {showSummonPreview && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowSummonPreview(false)}>
             <div className="bg-white w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b flex justify-between items-center text-black bg-gray-50">
-                    <h3 className="font-bold">معاينة الخطاب</h3>
-                    <div className="flex gap-2">
-                        <button onClick={handlePrintSummon} className="p-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 text-xs font-bold shadow-md hover:bg-indigo-700">
-                            <Printer size={16} /> طباعة PDF
-                        </button>
-                        <button onClick={() => setShowSummonPreview(false)} className="p-2 hover:bg-gray-200 rounded-full"><X size={24}/></button>
-                    </div>
-                </div>
+                <div className="p-4 border-b flex justify-between items-center text-black bg-gray-50"><h3 className="font-bold">معاينة الخطاب</h3><div className="flex gap-2"><button onClick={handlePrintSummon} className="p-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 text-xs font-bold shadow-md hover:bg-indigo-700"><Printer size={16} /> طباعة PDF</button><button onClick={() => setShowSummonPreview(false)} className="p-2 hover:bg-gray-200 rounded-full"><X size={24}/></button></div></div>
                 <div className="flex-1 overflow-auto bg-gray-200 p-8 flex justify-center">
-                    <div id="report-content-print" className="force-print-style text-black" style={{backgroundColor: 'white', color: 'black', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', width: '210mm', minHeight: '297mm', padding: '20mm', textAlign: 'right', fontFamily: 'serif', position: 'relative', border: '4px solid black', boxSizing: 'border-box'}}>
-                       
-                       {/* Header (Centered) */}
-                       <div style={{textAlign:'center', marginBottom:'40px'}}>
-                            {teacherInfo.ministryLogo && (
-                                <img src={teacherInfo.ministryLogo} style={{width:'60px', height:'auto', margin:'0 auto 15px auto', display:'block'}} alt="Logo" />
-                            )}
-                            <h3 style={{fontWeight:'bold', fontSize:'16px', margin:'5px', color:'black'}}>سلطنة عمان</h3>
-                            <h3 style={{fontWeight:'bold', fontSize:'16px', margin:'5px', color:'black'}}>وزارة التربية والتعليم</h3>
-                            <h3 style={{fontWeight:'bold', fontSize:'16px', margin:'5px', color:'black'}}>مدرسة {teacherInfo.school}</h3>
-                       </div>
-
-                       <div style={{marginBottom: '2rem', borderBottom: '2px solid black', paddingBottom: '1rem', color: 'black'}}>
-                            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px'}}>
-                                <span style={{fontWeight:'bold', fontSize:'18px', color:'black'}}>الفاضل/ ولي أمر الطالب: {availableStudentsForSummon.find(s=>s.id===summonStudentId)?.name}</span>
-                                <span style={{fontSize:'18px', color:'black'}}>المحترم</span>
-                            </div>
-                            <div style={{display:'flex', justifyContent:'space-between'}}>
-                                <span style={{fontWeight:'bold', fontSize:'16px', color:'black'}}>الصف: {summonClass}</span>
-                                <span style={{fontSize:'16px', color:'black'}}>التاريخ: {issueDate}</span>
-                            </div>
-                       </div>
-
-                       <h2 style={{textAlign: 'center', fontWeight: 'bold', fontSize: '1.25rem', textDecoration: 'underline', marginBottom: '2rem', color: 'black'}}>استدعاء ولي أمر</h2>
-                       
-                       <p style={{lineHeight: '2', fontSize: '1.125rem', marginBottom: '1.5rem', textAlign: 'justify', color: 'black'}}>
-                            السلام عليكم ورحمة الله وبركاته...<br/>
-                            نود إفادتكم بضرورة الحضور إلى المدرسة يوم <strong>{summonDate}</strong> الساعة <strong>{summonTime}</strong>.
-                       </p>
-                       
-                       <div style={{background: '#f9f9f9', border: '1px solid black', padding: '20px', textAlign: 'center', fontWeight: 'bold', marginBottom: '30px', color: 'black'}}>
-                            {getReasonText()}
-                       </div>
-                       
-                       {takenProcedures.length > 0 && (
-                            <div style={{marginTop:'20px', textAlign:'right', border:'1px dashed #000', padding:'15px', borderRadius:'10px', color: 'black'}}>
-                                <p style={{fontWeight:'bold', textDecoration:'underline', marginBottom:'10px'}}>الإجراءات المتخذة مسبقاً:</p>
-                                <ul style={{listStyleType:'disc', paddingRight:'20px', margin:0}}>
-                                    {takenProcedures.map(p => <li key={p} style={{marginBottom:'5px'}}>{p}</li>)}
-                                </ul>
-                            </div>
-                       )}
-
-                       <div style={{display:'flex', justifyContent:'space-between', marginTop:'80px', padding:'0 20px', position:'relative', alignItems:'flex-end'}}>
-                            <div style={{textAlign:'center', width:'30%'}}>
-                                <p style={{fontWeight:'bold', fontSize:'18px', marginBottom:'40px', color:'black'}}>معلم المادة</p>
-                                <p style={{fontSize:'18px', color:'black'}}>{teacherInfo.name}</p>
-                            </div>
-                            
-                            <div style={{textAlign:'center', width:'40%', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
-                                {teacherInfo.stamp && (
-                                    <img src={teacherInfo.stamp} style={{width:'130px', opacity:0.8, mixBlendMode:'multiply', transform: 'rotate(-10deg)'}} alt="Stamp" />
-                                )}
-                            </div>
-
-                            <div style={{textAlign:'center', width:'30%'}}>
-                                <p style={{fontWeight:'bold', fontSize:'18px', marginBottom:'40px', color:'black'}}>مدير المدرسة</p>
-                                <p style={{fontSize:'18px', color:'black'}}>.........................</p>
-                            </div>
-                        </div>
-
+                    <div id="report-content-print" className="force-print-style text-black" style={{backgroundColor: 'white', color: 'black', width: '210mm', minHeight: '297mm', padding: '20mm', textAlign: 'right', fontFamily: 'serif', position: 'relative', border: '4px solid black', boxSizing: 'border-box'}}>
+                       <div style={{textAlign:'center', marginBottom:'40px'}}>{teacherInfo.ministryLogo && <img src={teacherInfo.ministryLogo} style={{width:'60px', height:'auto', margin:'0 auto 15px auto', display:'block'}} alt="Logo" />}<h3 style={{fontWeight:'bold', fontSize:'16px', margin:'5px'}}>سلطنة عمان</h3><h3 style={{fontWeight:'bold', fontSize:'16px', margin:'5px'}}>وزارة التربية والتعليم</h3><h3 style={{fontWeight:'bold', fontSize:'16px', margin:'5px'}}>مدرسة {teacherInfo.school}</h3></div>
+                       <div style={{marginBottom: '2rem', borderBottom: '2px solid black', paddingBottom: '1rem'}}><div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px'}}><span style={{fontWeight:'bold', fontSize:'18px'}}>الفاضل/ ولي أمر الطالب: {availableStudentsForSummon.find(s=>s.id===summonStudentId)?.name}</span><span style={{fontSize:'18px'}}>المحترم</span></div><div style={{display:'flex', justifyContent:'space-between'}}><span style={{fontWeight:'bold', fontSize:'16px'}}>الصف: {summonClass}</span><span style={{fontSize:'16px'}}>التاريخ: {issueDate}</span></div></div>
+                       <h2 style={{textAlign: 'center', fontWeight: 'bold', fontSize: '1.25rem', textDecoration: 'underline', marginBottom: '2rem'}}>استدعاء ولي أمر</h2>
+                       <p style={{lineHeight: '2', fontSize: '1.125rem', marginBottom: '1.5rem', textAlign: 'justify'}}>السلام عليكم ورحمة الله وبركاته...<br/>نود إفادتكم بضرورة الحضور إلى المدرسة يوم <strong>{summonDate}</strong> الساعة <strong>{summonTime}</strong>.</p>
+                       <div style={{background: '#f9f9f9', border: '1px solid black', padding: '20px', textAlign: 'center', fontWeight: 'bold', marginBottom: '30px'}}>{getReasonText()}</div>
+                       {takenProcedures.length > 0 && (<div style={{marginTop:'20px', textAlign:'right', border:'1px dashed #000', padding:'15px', borderRadius:'10px'}}><p style={{fontWeight:'bold', textDecoration:'underline', marginBottom:'10px'}}>الإجراءات المتخذة مسبقاً:</p><ul style={{listStyleType:'disc', paddingRight:'20px', margin:0}}>{takenProcedures.map(p => <li key={p} style={{marginBottom:'5px'}}>{p}</li>)}</ul></div>)}
+                       <div style={{display:'flex', justifyContent:'space-between', marginTop:'80px', padding:'0 20px', position:'relative', alignItems:'flex-end'}}><div style={{textAlign:'center', width:'30%'}}><p style={{fontWeight:'bold', fontSize:'18px', marginBottom:'40px'}}>معلم المادة</p><p style={{fontSize:'18px'}}>{teacherInfo.name}</p></div><div style={{textAlign:'center', width:'40%', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>{teacherInfo.stamp && <img src={teacherInfo.stamp} style={{width:'130px', opacity:0.8, mixBlendMode:'multiply', transform: 'rotate(-10deg)'}} alt="Stamp" />}</div><div style={{textAlign:'center', width:'30%'}}><p style={{fontWeight:'bold', fontSize:'18px', marginBottom:'40px'}}>مدير المدرسة</p><p style={{fontSize:'18px'}}>.........................</p></div></div>
                     </div>
                 </div>
             </div>
@@ -790,25 +532,8 @@ const Reports: React.FC = () => {
       )}
 
       <Modal isOpen={showCertSettingsModal} onClose={() => setShowCertSettingsModal(false)} className="max-w-md rounded-[2rem]">
-          <div className="text-center">
-              <h3 className="font-black text-lg mb-4 text-white">إعدادات الشهادة</h3>
-              <div className="space-y-3">
-                  <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-1 text-right">عنوان الشهادة</label>
-                      <input type="text" value={tempCertSettings.title} onChange={(e) => setTempCertSettings({...tempCertSettings, title: e.target.value})} className="w-full p-3 glass-input rounded-xl text-sm font-bold outline-none text-white bg-[#111827]" />
-                  </div>
-                  <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-1 text-right">نص الشهادة</label>
-                      <textarea value={tempCertSettings.bodyText} onChange={(e) => setTempCertSettings({...tempCertSettings, bodyText: e.target.value})} className="w-full p-3 glass-input rounded-xl text-sm font-bold outline-none h-24 resize-none text-white bg-[#111827]" />
-                  </div>
-                  <div className="flex gap-2 mt-4 pt-2">
-                      <button onClick={() => setShowCertSettingsModal(false)} className="flex-1 py-3 text-gray-400 font-bold text-xs hover:bg-white/5 rounded-xl">إلغاء</button>
-                      <button onClick={handleSaveCertSettings} className="flex-[2] py-3 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg">حفظ الإعدادات</button>
-                  </div>
-              </div>
-          </div>
+          <div className="text-center"><h3 className="font-black text-lg mb-4 text-white">إعدادات الشهادة</h3><div className="space-y-3"><div><label className="block text-xs font-bold text-gray-400 mb-1 text-right">عنوان الشهادة</label><input type="text" value={tempCertSettings.title} onChange={(e) => setTempCertSettings({...tempCertSettings, title: e.target.value})} className="w-full p-3 glass-input rounded-xl text-sm font-bold outline-none text-white bg-[#111827]" /></div><div><label className="block text-xs font-bold text-gray-400 mb-1 text-right">نص الشهادة</label><textarea value={tempCertSettings.bodyText} onChange={(e) => setTempCertSettings({...tempCertSettings, bodyText: e.target.value})} className="w-full p-3 glass-input rounded-xl text-sm font-bold outline-none h-24 resize-none text-white bg-[#111827]" /></div><div className="flex gap-2 mt-4 pt-2"><button onClick={() => setShowCertSettingsModal(false)} className="flex-1 py-3 text-gray-400 font-bold text-xs hover:bg-white/5 rounded-xl">إلغاء</button><button onClick={handleSaveCertSettings} className="flex-[2] py-3 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg">حفظ الإعدادات</button></div></div></div>
       </Modal>
-
     </div>
   );
 };
