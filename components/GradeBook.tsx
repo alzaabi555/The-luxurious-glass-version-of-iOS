@@ -32,10 +32,8 @@ const GradeBook: React.FC<GradeBookProps> = ({
   
   const tools = useMemo(() => Array.isArray(assessmentTools) ? assessmentTools : [], [assessmentTools]);
 
-  const [selectedClass, setSelectedClass] = useState(() => {
-      if (Array.isArray(classes) && classes.length > 0) return classes[0];
-      return 'all';
-  });
+  const [selectedGrade, setSelectedGrade] = useState<string>('all');
+  const [selectedClass, setSelectedClass] = useState('all');
 
   const [showAddGrade, setShowAddGrade] = useState<{ student: Student } | null>(null);
   const [editingGrade, setEditingGrade] = useState<GradeRecord | null>(null);
@@ -64,7 +62,8 @@ const GradeBook: React.FC<GradeBookProps> = ({
         transition-all duration-300 relative overflow-hidden backdrop-blur-md bg-[#1f2937]
       `,
       pill: 'rounded-xl border border-white/10 shadow-sm',
-      header: 'glass-heavy border-b border-white/10 shadow-lg backdrop-blur-xl -mx-4 -mt-4 px-4 pt-6 pb-2 mb-4 sticky top-0 z-30 bg-[#1f2937]',
+      // Modified header to be sticky and safe
+      header: 'glass-heavy border-b border-white/10 shadow-lg backdrop-blur-xl -mx-4 -mt-4 px-4 pt-safe sticky top-0 z-30 bg-[#1f2937] pb-2',
   };
 
   useEffect(() => {
@@ -73,6 +72,26 @@ const GradeBook: React.FC<GradeBookProps> = ({
          setScore('');
      }
   }, [showAddGrade, editingGrade]);
+
+  // Logic: Extract unique Grades
+  const availableGrades = useMemo(() => {
+      const grades = new Set<string>();
+      students.forEach(s => {
+          if (s.grade) grades.add(s.grade);
+          else if (s.classes[0]) {
+              const match = s.classes[0].match(/^(\d+)/);
+              if (match) grades.add(match[1]);
+          }
+      });
+      if (grades.size === 0 && classes.length > 0) return ['عام']; 
+      return Array.from(grades).sort();
+  }, [students, classes]);
+
+  // Logic: Filter classes based on selected grade
+  const visibleClasses = useMemo(() => {
+      if (selectedGrade === 'all') return classes;
+      return classes.filter(c => c.startsWith(selectedGrade));
+  }, [classes, selectedGrade]);
 
   const cleanText = (text: string) => { if (!text) return ''; return String(text).trim(); };
   
@@ -104,7 +123,6 @@ const GradeBook: React.FC<GradeBookProps> = ({
   };
 
   const getSymbolColor = (score: number) => {
-      // Adjusted colors to be lighter for dark mode visibility
       if (score >= 90) return 'text-emerald-400'; 
       if (score >= 80) return 'text-blue-400';
       if (score >= 65) return 'text-amber-400';
@@ -116,11 +134,17 @@ const GradeBook: React.FC<GradeBookProps> = ({
     if (!Array.isArray(students)) return [];
     return students.filter(s => {
       if (!s || typeof s !== 'object') return false;
-      const studentClasses = Array.isArray(s.classes) ? s.classes : [];
-      const matchesClass = selectedClass === 'all' || studentClasses.includes(selectedClass);
-      return matchesClass;
+      
+      const matchesClass = selectedClass === 'all' || (s.classes && s.classes.includes(selectedClass));
+      
+      let matchesGrade = true;
+      if (selectedGrade !== 'all') {
+          matchesGrade = s.grade === selectedGrade || (s.classes[0] && s.classes[0].startsWith(selectedGrade));
+      }
+
+      return matchesClass && matchesGrade;
     });
-  }, [students, selectedClass]);
+  }, [students, selectedClass, selectedGrade]);
 
   const getSemesterGrades = (student: Student, sem: '1' | '2') => { 
       if (!student || !Array.isArray(student.grades)) return []; 
@@ -394,9 +418,9 @@ const GradeBook: React.FC<GradeBookProps> = ({
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] text-white pb-20">
         
-        {/* Header Section - Full Width */}
+        {/* Sticky Header */}
         <div className={styles.header}>
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center mb-3 pt-4">
                 <h1 className="text-2xl font-black text-white">سجل الدرجات</h1>
                 <div className="flex gap-2">
                     <label className="w-9 h-9 rounded-full glass-icon text-emerald-400 active:scale-95 transition-transform flex items-center justify-center cursor-pointer shadow-md border border-white/20 hover:scale-105" title="استيراد Excel">
@@ -415,21 +439,25 @@ const GradeBook: React.FC<GradeBookProps> = ({
                 </div>
             </div>
 
-            {/* Filters without search */}
-            <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-[70%]">
+            {/* Hierarchical Filters */}
+            <div className="space-y-2 mb-2">
+                {/* Grades */}
+                {availableGrades.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        <button onClick={() => { setSelectedGrade('all'); setSelectedClass('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap transition-all rounded-lg border ${selectedGrade === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>كل المراحل</button>
+                        {availableGrades.map(g => (
+                            <button key={g} onClick={() => { setSelectedGrade(g); setSelectedClass('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap transition-all rounded-lg border ${selectedGrade === g ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>صف {g}</button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Classes */}
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                     <button onClick={() => setSelectedClass('all')} className={`px-4 py-2 text-xs font-bold whitespace-nowrap transition-all ${selectedClass === 'all' ? 'bg-indigo-600 text-white shadow-indigo-500/50' : 'glass-card text-white hover:bg-white/10'} ${styles.pill}`}>الكل</button>
-                    {classes.map(c => (
+                    {visibleClasses.map(c => (
                         <button key={c} onClick={() => setSelectedClass(c)} className={`px-4 py-2 text-xs font-bold whitespace-nowrap transition-all ${selectedClass === c ? 'bg-indigo-600 text-white shadow-indigo-500/50' : 'glass-card text-white hover:bg-white/10'} ${styles.pill}`}>{c}</button>
                     ))}
                 </div>
-                
-                <button 
-                    onClick={() => onSemesterChange(currentSemester === '1' ? '2' : '1')}
-                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-sm border ${currentSemester === '1' ? 'bg-amber-900/40 text-amber-200 border-amber-500/30' : 'bg-blue-600 text-white border-blue-700 shadow-blue-500/30'}`}
-                >
-                    فصل {currentSemester}
-                </button>
             </div>
 
             {/* Assessment Tools Quick Bar */}
@@ -450,7 +478,7 @@ const GradeBook: React.FC<GradeBookProps> = ({
         </div>
 
         {/* Content - Student List */}
-        <div className="flex-1 overflow-y-auto px-4 pb-20 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-4 pb-20 custom-scrollbar pt-2">
             {filteredStudents.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3">
                     {filteredStudents.map((student) => {

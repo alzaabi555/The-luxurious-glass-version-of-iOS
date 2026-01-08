@@ -26,6 +26,8 @@ interface DashboardProps {
     setPeriodTimes: React.Dispatch<React.SetStateAction<PeriodTime[]>>;
     notificationsEnabled: boolean;
     onToggleNotifications: () => void;
+    currentSemester: '1' | '2';
+    onSemesterChange: (sem: '1' | '2') => void;
 }
 
 const BELL_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -38,7 +40,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     periodTimes,
     setPeriodTimes,
     notificationsEnabled,
-    onToggleNotifications
+    onToggleNotifications,
+    currentSemester,
+    onSemesterChange
 }) => {
     const { classes } = useApp();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +63,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const [editStamp, setEditStamp] = useState(teacherInfo.stamp || '');
     const [editMinistryLogo, setEditMinistryLogo] = useState(teacherInfo.ministryLogo || '');
     const [editAcademicYear, setEditAcademicYear] = useState(teacherInfo.academicYear || '');
+    const [editSemester, setEditSemester] = useState<'1' | '2'>(currentSemester);
 
     // State for Schedule/Timing Modal
     const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -76,7 +81,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         setEditStamp(teacherInfo.stamp || '');
         setEditMinistryLogo(teacherInfo.ministryLogo || '');
         setEditAcademicYear(teacherInfo.academicYear || '');
-    }, [teacherInfo]);
+        setEditSemester(currentSemester);
+    }, [teacherInfo, currentSemester]);
 
     // Update clock every minute
     useEffect(() => {
@@ -103,6 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             ministryLogo: editMinistryLogo,
             academicYear: editAcademicYear
         });
+        onSemesterChange(editSemester);
         setShowEditModal(false);
     };
 
@@ -238,54 +245,51 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
         <div className="space-y-4 pb-20 text-gray-100 animate-in fade-in duration-500">
             
-            {/* 1. Top Section: Teacher Profile Card (Dark Gray) */}
-            <div className="glass-heavy bg-[#1f2937] p-4 md:p-6 pt-8 relative overflow-hidden shadow-xl border-b border-gray-700 -mx-4 -mt-4 mb-4 group shimmer-hover">
-                
-                <div className="relative z-10 flex items-center justify-between">
-                    <button 
-                        onClick={() => setShowEditModal(true)}
-                        className="glass-icon p-3 rounded-2xl text-gray-300 hover:bg-gray-700 transition-all absolute left-0 top-0 border border-gray-600"
-                    >
-                        <Edit3 className="w-5 h-5 text-indigo-400" />
-                    </button>
+            {/* 1. Top Section: Teacher Profile Card (Sticky Header) */}
+            <div className="sticky top-0 z-40 pt-safe -mx-4 -mt-4 px-4 bg-[#111827] shadow-lg">
+                <div className="glass-heavy bg-[#1f2937] p-4 md:p-6 pt-4 relative overflow-hidden rounded-b-[2rem] border-b border-gray-700 group">
+                    <div className="relative z-10 flex items-center justify-between">
+                        <button 
+                            onClick={() => setShowEditModal(true)}
+                            className="glass-icon p-3 rounded-2xl text-gray-300 hover:bg-gray-700 transition-all absolute left-0 top-0 border border-gray-600"
+                        >
+                            <Edit3 className="w-5 h-5 text-indigo-400" />
+                        </button>
 
-                    {/* App Logo & Name (Right Side) */}
-                    <div className="absolute right-3 top-3 flex flex-col items-center gap-1">
-                        <BrandLogo className="w-10 h-10" showText={false} />
-                        <span className="text-[10px] font-black text-indigo-300 tracking-wider">راصد</span>
-                    </div>
+                        <div className="absolute right-3 top-3 flex flex-col items-center gap-1">
+                            <BrandLogo className="w-10 h-10" showText={false} />
+                            <span className="text-[10px] font-black text-indigo-300 tracking-wider">راصد</span>
+                        </div>
 
-                    <div className="flex flex-col items-center w-full">
-                        <div className="mt-2"></div>
-                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-[2rem] bg-[#374151] p-1 shadow-lg mb-3 relative group-hover:scale-105 transition-transform border border-gray-600">
-                             {teacherInfo.avatar ? (
-                                <img src={teacherInfo.avatar} className="w-full h-full object-cover rounded-[1.8rem]" alt="Profile" />
-                             ) : (
-                                <div className="w-full h-full bg-indigo-900 rounded-[1.8rem] flex items-center justify-center text-3xl font-black text-white">
-                                    {teacherInfo.name ? teacherInfo.name.charAt(0) : 'T'}
-                                </div>
-                             )}
-                        </div>
-                        <h1 className="text-xl md:text-2xl font-black text-white text-center mb-1">
-                            {teacherInfo.name || 'مرحباً بك يا معلم'}
-                        </h1>
-                        <div className="flex flex-col items-center gap-1 text-[10px] font-bold text-gray-400">
-                            {teacherInfo.school && <span className="flex items-center gap-1"><School className="w-3 h-3 text-indigo-400"/> {teacherInfo.school}</span>}
-                            {teacherInfo.subject && <span className="flex items-center gap-1"><BookOpen className="w-3 h-3 text-indigo-400"/> {teacherInfo.subject}</span>}
-                        </div>
-                        {teacherInfo.governorate && (
-                            <div className="mt-3 md:mt-4 pt-3 border-t border-gray-700 w-full text-center">
-                                <span className="text-[9px] md:text-[10px] text-gray-500 font-bold flex items-center justify-center gap-1">
-                                    <MapPin className="w-3 h-3 text-indigo-400" /> {teacherInfo.governorate}
+                        <div className="flex flex-col items-center w-full">
+                            <div className="mt-2"></div>
+                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-[2rem] bg-[#374151] p-1 shadow-lg mb-3 relative group-hover:scale-105 transition-transform border border-gray-600">
+                                {teacherInfo.avatar ? (
+                                    <img src={teacherInfo.avatar} className="w-full h-full object-cover rounded-[1.8rem]" alt="Profile" />
+                                ) : (
+                                    <div className="w-full h-full bg-indigo-900 rounded-[1.8rem] flex items-center justify-center text-3xl font-black text-white">
+                                        {teacherInfo.name ? teacherInfo.name.charAt(0) : 'T'}
+                                    </div>
+                                )}
+                            </div>
+                            <h1 className="text-xl md:text-2xl font-black text-white text-center mb-1">
+                                {teacherInfo.name || 'مرحباً بك يا معلم'}
+                            </h1>
+                            <div className="flex flex-col items-center gap-1 text-[10px] font-bold text-gray-400">
+                                {teacherInfo.school && <span className="flex items-center gap-1"><School className="w-3 h-3 text-indigo-400"/> {teacherInfo.school}</span>}
+                                <span className="flex items-center gap-2">
+                                    <span className="bg-indigo-900/50 text-indigo-200 px-2 py-0.5 rounded-md border border-indigo-500/30">
+                                        الفصل الدراسي {currentSemester === '1' ? 'الأول' : 'الثاني'}
+                                    </span>
                                 </span>
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Schedule Card (Dark Gray) */}
-            <div className="glass-card bg-[#1f2937] rounded-[2.5rem] p-4 border border-gray-700 shadow-xl relative">
+            <div className="glass-card bg-[#1f2937] rounded-[2.5rem] p-4 border border-gray-700 shadow-xl relative mt-4">
                 <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
                         <button onClick={() => setShowScheduleModal(true)} className="w-8 h-8 glass-icon rounded-full text-gray-300 hover:bg-gray-700 transition-colors border border-gray-600 shadow-sm shimmer-hover">
@@ -334,7 +338,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             {/* Edit Teacher Info Modal (Dark) */}
             <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)}>
                  <div className="text-center">
-                    <h3 className="font-black text-2xl mb-6 text-white">بيانات المعلم</h3>
+                    <h3 className="font-black text-2xl mb-6 text-white">إعدادات الهوية</h3>
                     
                     <div className="flex gap-4 justify-center mb-6 overflow-x-auto pb-2">
                         {/* Avatar Uploader */}
@@ -399,7 +403,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <input className="w-full p-2.5 glass-input rounded-xl font-bold text-xs md:text-sm text-white bg-[#374151] border border-gray-600 focus:border-indigo-500 outline-none" placeholder="المحافظة (للتوجيه)" value={editGovernorate} onChange={e => setEditGovernorate(e.target.value)} />
                         <input className="w-full p-2.5 glass-input rounded-xl font-bold text-xs md:text-sm text-white bg-[#374151] border border-gray-600 focus:border-indigo-500 outline-none" placeholder="العام الدراسي (مثال: 2024 / 2025)" value={editAcademicYear} onChange={e => setEditAcademicYear(e.target.value)} />
                         
-                        <button onClick={handleSaveInfo} className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-black text-xs md:text-sm shadow-lg hover:bg-indigo-700 transition-all mt-1">حفظ التغييرات</button>
+                        <div className="bg-[#374151] rounded-xl p-2 flex items-center justify-between border border-gray-600">
+                            <span className="text-xs font-bold text-gray-300 pr-2">الفصل الدراسي:</span>
+                            <div className="flex gap-1">
+                                <button onClick={() => setEditSemester('1')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${editSemester === '1' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>الأول</button>
+                                <button onClick={() => setEditSemester('2')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${editSemester === '2' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>الثاني</button>
+                            </div>
+                        </div>
+
+                        <button onClick={handleSaveInfo} className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-black text-xs md:text-sm shadow-lg hover:bg-indigo-700 transition-all mt-3">حفظ وتطبيق</button>
                     </div>
                  </div>
             </Modal>

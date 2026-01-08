@@ -18,6 +18,7 @@ interface AttendanceTrackerProps {
 const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes, setStudents }) => {
   const today = new Date().toLocaleDateString('en-CA'); 
   const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [notificationTarget, setNotificationTarget] = useState<{student: Student, type: 'absent' | 'late' | 'truant'} | null>(null);
@@ -56,9 +57,15 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
       }
       
       setStudents(prev => prev.map(s => {
-          if (classFilter !== 'all' && (!s.classes || !s.classes.includes(classFilter))) {
-              return s;
+          // Check filters
+          const matchesClass = classFilter === 'all' || s.classes.includes(classFilter);
+          let matchesGrade = true;
+          if (selectedGrade !== 'all') {
+              matchesGrade = s.grade === selectedGrade || (s.classes[0] && s.classes[0].startsWith(selectedGrade));
           }
+
+          if (!matchesClass || !matchesGrade) return s;
+
           const filtered = s.attendance.filter(a => a.date !== selectedDate);
           if (status === 'reset') {
               return { ...s, attendance: filtered };
@@ -70,12 +77,36 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
       }));
   };
 
+  // Logic: Extract unique Grades
+  const availableGrades = useMemo(() => {
+      const grades = new Set<string>();
+      students.forEach(s => {
+          if (s.grade) grades.add(s.grade);
+          else if (s.classes[0]) {
+              const match = s.classes[0].match(/^(\d+)/);
+              if (match) grades.add(match[1]);
+          }
+      });
+      if (grades.size === 0 && classes.length > 0) return ['عام']; 
+      return Array.from(grades).sort();
+  }, [students, classes]);
+
+  // Logic: Filter classes based on selected grade
+  const visibleClasses = useMemo(() => {
+      if (selectedGrade === 'all') return classes;
+      return classes.filter(c => c.startsWith(selectedGrade));
+  }, [classes, selectedGrade]);
+
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const matchesClass = classFilter === 'all' || s.classes.includes(classFilter);
-      return matchesClass;
+      let matchesGrade = true;
+      if (selectedGrade !== 'all') {
+          matchesGrade = s.grade === selectedGrade || (s.classes[0] && s.classes[0].startsWith(selectedGrade));
+      }
+      return matchesClass && matchesGrade;
     });
-  }, [students, classFilter]);
+  }, [students, classFilter, selectedGrade]);
 
   const stats = useMemo(() => {
       const present = filteredStudents.filter(s => getStatus(s) === 'present').length;
@@ -170,18 +201,18 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
   return (
     <div className="flex flex-col h-full text-gray-100 relative animate-in fade-in duration-500">
         
-        {/* iOS-Style Header Section (Dark) */}
-        <div className="sticky top-0 z-30 pb-2 glass-heavy bg-[#1f2937] border-b border-gray-700 shadow-md -mx-4 px-4 pt-4">
+        {/* Sticky Header - Adjusted for safe area and removed gap */}
+        <div className="sticky top-0 z-30 pb-2 glass-heavy bg-[#1f2937] border-b border-gray-700 shadow-md pt-safe -mx-4 px-4 -mt-4">
             
             {/* Title & Actions */}
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4 pt-4">
                 <h1 className="text-2xl font-black tracking-tight text-white">سجل الغياب</h1>
                 <button onClick={handleExportDailyExcel} disabled={isExportingExcel} className="w-10 h-10 glass-icon bg-[#374151] border border-gray-600 rounded-full text-emerald-500 shadow-sm flex items-center justify-center active:scale-95 transition-transform hover:bg-[#4b5563]" title="تصدير سجل شهري">
                      {isExportingExcel ? <Loader2 className="w-5 h-5 animate-spin"/> : <Share2 className="w-5 h-5"/>}
                 </button>
             </div>
 
-            {/* Date Scroller - iOS Segmented Control Look (Dark) */}
+            {/* Date Scroller */}
             <div className="flex items-center justify-between glass-card bg-[#374151] rounded-2xl p-1 mb-3 shadow-sm border border-gray-600 mx-1">
                 <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toLocaleDateString('en-CA')); }} className="p-3 rounded-xl hover:bg-[#4b5563] active:bg-[#1f2937] transition-colors"><ChevronDown className="w-5 h-5 rotate-90 text-gray-400"/></button>
                 <div className="flex items-center gap-2 font-black text-sm text-white">
@@ -191,16 +222,27 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
                 <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toLocaleDateString('en-CA')); }} className="p-3 rounded-xl hover:bg-[#4b5563] active:bg-[#1f2937] transition-colors"><ChevronDown className="w-5 h-5 -rotate-90 text-gray-400"/></button>
             </div>
 
-            {/* Filters (Dark) */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 px-1">
-                <button onClick={() => setClassFilter('all')} className={`px-5 py-2 text-xs font-bold whitespace-nowrap rounded-xl transition-all border ${classFilter === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600 hover:bg-[#4b5563]'}`}>الكل</button>
-                {classes.map(c => (
-                    <button key={c} onClick={() => setClassFilter(c)} className={`px-5 py-2 text-xs font-bold whitespace-nowrap rounded-xl transition-all border ${classFilter === c ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600 hover:bg-[#4b5563]'}`}>{c}</button>
-                ))}
+            {/* Filters (Grade Level first, then Classes) */}
+            <div className="space-y-2 mb-2 px-1">
+                {availableGrades.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        <button onClick={() => { setSelectedGrade('all'); setClassFilter('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${selectedGrade === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600'}`}>كل المراحل</button>
+                        {availableGrades.map(g => (
+                            <button key={g} onClick={() => { setSelectedGrade(g); setClassFilter('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${selectedGrade === g ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600'}`}>صف {g}</button>
+                        ))}
+                    </div>
+                )}
+
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                    <button onClick={() => setClassFilter('all')} className={`px-5 py-2 text-xs font-bold whitespace-nowrap rounded-xl transition-all border ${classFilter === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600 hover:bg-[#4b5563]'}`}>الكل</button>
+                    {visibleClasses.map(c => (
+                        <button key={c} onClick={() => setClassFilter(c)} className={`px-5 py-2 text-xs font-bold whitespace-nowrap rounded-xl transition-all border ${classFilter === c ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600 hover:bg-[#4b5563]'}`}>{c}</button>
+                    ))}
+                </div>
             </div>
         </div>
 
-        {/* Live Stats Strip - Compact iOS Style (Dark) */}
+        {/* Live Stats Strip */}
         <div className="grid grid-cols-5 gap-px bg-gray-700 rounded-2xl overflow-hidden mx-1 mb-4 shadow-sm border border-gray-600 mt-4">
             <button onClick={() => handleMarkAll('present')} className="bg-[#1f2937] py-3 flex flex-col items-center justify-center active:bg-[#111827] transition-colors hover:bg-[#374151]">
                 <span className="text-[10px] font-bold text-gray-400 mb-1">حضور</span>
@@ -224,7 +266,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
             </button>
         </div>
 
-        {/* Student List - iOS Inset Grouped Style (Dark) */}
+        {/* Student List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-1 pb-24">
             {filteredStudents.length > 0 ? (
                 <div className="space-y-2">

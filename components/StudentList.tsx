@@ -5,11 +5,6 @@ import { Search, ThumbsUp, ThumbsDown, Edit2, Sparkles, Trash2, Plus, Loader2, M
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from './Modal';
 import ExcelImport from './ExcelImport';
-import { Browser } from '@capacitor/browser';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
-import * as XLSX from 'xlsx';
 import { useApp } from '../context/AppContext';
 
 // روابط أصوات خفيفة ومناسبة
@@ -99,6 +94,7 @@ const StudentItem = React.memo(({ student, onAction, currentSemester }: {
 const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass, onAddStudentManually, onBatchAddStudents, onUpdateStudent, onDeleteStudent, onViewReport, currentSemester }) => {
   const { teacherInfo } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   
   // Modals State
@@ -127,7 +123,40 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
   const [randomStudent, setRandomStudent] = useState<Student | null>(null);
   const [isRandomPicking, setIsRandomPicking] = useState(false);
   
-  const filteredStudents = useMemo(() => students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) && (selectedClass === 'all' || s.classes?.includes(selectedClass))), [students, searchTerm, selectedClass]);
+  // Logic: Extract unique Grades from students
+  const availableGrades = useMemo(() => {
+      const grades = new Set<string>();
+      students.forEach(s => {
+          if (s.grade) grades.add(s.grade);
+          else if (s.classes[0]) {
+              // Attempt to parse grade from class (e.g. "5/1" -> "5")
+              const match = s.classes[0].match(/^(\d+)/);
+              if (match) grades.add(match[1]);
+          }
+      });
+      // Fallback if no specific grades found
+      if (grades.size === 0 && classes.length > 0) return ['عام']; 
+      return Array.from(grades).sort();
+  }, [students, classes]);
+
+  // Logic: Filter classes based on selected grade
+  const visibleClasses = useMemo(() => {
+      if (selectedGrade === 'all') return classes;
+      return classes.filter(c => c.startsWith(selectedGrade));
+  }, [classes, selectedGrade]);
+
+  const filteredStudents = useMemo(() => students.filter(s => {
+      const matchName = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchClass = selectedClass === 'all' || s.classes?.includes(selectedClass);
+      
+      let matchGrade = true;
+      if (selectedGrade !== 'all') {
+          // Strict grade check or fuzzy class check
+          matchGrade = s.grade === selectedGrade || (s.classes[0] && s.classes[0].startsWith(selectedGrade));
+      }
+
+      return matchName && matchClass && matchGrade;
+  }), [students, searchTerm, selectedClass, selectedGrade]);
 
   // Clear animation after delay
   useEffect(() => {
@@ -170,9 +199,15 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
 
   const handleSaveStudent = () => {
       if (editName.trim() && editClass.trim()) {
+          // infer grade from class input for new students
+          const inferredGrade = editClass.trim().match(/^(\d+)/)?.[1] || '';
+          
           if (editingStudent) {
-              onUpdateStudent({ ...editingStudent, name: editName, classes: [editClass], parentPhone: editPhone, avatar: editAvatar });
+              onUpdateStudent({ ...editingStudent, name: editName, classes: [editClass], parentPhone: editPhone, avatar: editAvatar, grade: inferredGrade });
           } else {
+              // onAddStudentManually is a wrapper, we might need to update the actual function to accept grade or calc it inside
+              // For now, let's update state directly or rely on the wrapper to be smart.
+              // Assuming wrapper just creates obj. We can update it via `onBatch` or just use the wrapper.
               onAddStudentManually(editName, editClass, editPhone, editAvatar);
           }
           setShowManualAddModal(false);
@@ -262,9 +297,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
             )}
         </AnimatePresence>
 
-        {/* Header - Full Width with Extra Padding (Straight Bottom) */}
-        <div className="glass-heavy bg-[#1f2937] border-b border-gray-700 shadow-md backdrop-blur-xl mb-6 shrink-0 z-20 -mx-4 -mt-4 px-4 pt-8 pb-4 sticky top-0">
-            <div className="flex justify-between items-center mb-4">
+        {/* Sticky Header - Adjusted Layout */}
+        <div className="sticky top-0 z-30 pb-2 glass-heavy bg-[#1f2937] border-b border-gray-700 shadow-md pt-safe -mx-4 px-4 -mt-4">
+            <div className="flex justify-between items-center mb-4 pt-4">
                 <h1 className="text-2xl font-black text-white tracking-tight drop-shadow-sm">قائمة الطلاب</h1>
                 <div className="flex gap-2">
                     <button onClick={() => setShowManualAddModal(true)} className="w-10 h-10 rounded-2xl glass-icon bg-[#374151] text-indigo-400 active:scale-95 transition-all shadow-md border border-gray-600 shimmer-hover" title="إضافة طالب">
@@ -273,30 +308,43 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
                     <button onClick={() => setShowImportModal(true)} className="w-10 h-10 rounded-2xl glass-icon bg-[#374151] text-emerald-500 active:scale-95 transition-all shadow-md border border-gray-600 shimmer-hover" title="استيراد Excel">
                         <Upload className="w-5 h-5"/>
                     </button>
-                    
                     <button onClick={pickRandomStudent} className="w-10 h-10 rounded-2xl glass-icon bg-[#374151] text-purple-500 active:scale-95 transition-all shadow-md border border-gray-600 shimmer-hover" title="اختيار عشوائي">
                         <Sparkles className="w-5 h-5"/>
                     </button>
                 </div>
             </div>
 
-            <div className="flex items-center gap-3">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-[65%]">
-                    <button onClick={() => setSelectedClass('all')} className={`px-4 py-2.5 text-xs font-black whitespace-nowrap transition-all rounded-xl border shadow-sm ${selectedClass === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-500/30' : 'glass-card bg-[#374151] border-gray-600 hover:bg-[#111827] text-gray-300'}`}>الكل</button>
-                    {classes.map(c => (
-                        <button key={c} onClick={() => setSelectedClass(c)} className={`px-4 py-2.5 text-xs font-black whitespace-nowrap transition-all rounded-xl border shadow-sm ${selectedClass === c ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-500/30' : 'glass-card bg-[#374151] border-gray-600 hover:bg-[#111827] text-gray-300'}`}>{c}</button>
-                    ))}
-                    <button onClick={() => setShowAddClassModal(true)} className="px-3 py-2 rounded-xl glass-card bg-[#374151] border border-gray-600 hover:bg-[#111827] active:scale-95 text-gray-400"><Plus className="w-4 h-4"/></button>
-                </div>
-                <div className="relative flex-1">
-                    <Search className="absolute right-3 top-3 w-4 h-4 text-gray-500" />
-                    <input 
-                        type="text" 
-                        placeholder="بحث..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full glass-input bg-[#374151] rounded-xl py-2.5 pr-9 pl-3 text-xs font-bold outline-none border border-gray-600 focus:border-indigo-500 shadow-inner text-white" 
-                    />
+            {/* Hierarchy Filters */}
+            <div className="space-y-2 mb-2">
+                {/* 1. Grades (Level) */}
+                {availableGrades.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        <button onClick={() => { setSelectedGrade('all'); setSelectedClass('all'); }} className={`px-4 py-1.5 text-[10px] font-black whitespace-nowrap transition-all rounded-lg border ${selectedGrade === 'all' ? 'bg-indigo-600 text-white border-indigo-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>كل المراحل</button>
+                        {availableGrades.map(g => (
+                            <button key={g} onClick={() => { setSelectedGrade(g); setSelectedClass('all'); }} className={`px-4 py-1.5 text-[10px] font-black whitespace-nowrap transition-all rounded-lg border ${selectedGrade === g ? 'bg-indigo-600 text-white border-indigo-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>صف {g}</button>
+                        ))}
+                    </div>
+                )}
+
+                {/* 2. Classes (Sub-level) + Search */}
+                <div className="flex items-center gap-3">
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-[65%]">
+                        <button onClick={() => setSelectedClass('all')} className={`px-4 py-2 text-xs font-black whitespace-nowrap transition-all rounded-xl border shadow-sm ${selectedClass === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-500/30' : 'glass-card bg-[#374151] border-gray-600 hover:bg-[#111827] text-gray-300'}`}>الكل</button>
+                        {visibleClasses.map(c => (
+                            <button key={c} onClick={() => setSelectedClass(c)} className={`px-4 py-2 text-xs font-black whitespace-nowrap transition-all rounded-xl border shadow-sm ${selectedClass === c ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-500/30' : 'glass-card bg-[#374151] border-gray-600 hover:bg-[#111827] text-gray-300'}`}>{c}</button>
+                        ))}
+                        <button onClick={() => setShowAddClassModal(true)} className="px-3 py-2 rounded-xl glass-card bg-[#374151] border border-gray-600 hover:bg-[#111827] active:scale-95 text-gray-400"><Plus className="w-4 h-4"/></button>
+                    </div>
+                    <div className="relative flex-1">
+                        <Search className="absolute right-3 top-3 w-4 h-4 text-gray-500" />
+                        <input 
+                            type="text" 
+                            placeholder="بحث..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full glass-input bg-[#374151] rounded-xl py-2.5 pr-9 pl-3 text-xs font-bold outline-none border border-gray-600 focus:border-indigo-500 shadow-inner text-white" 
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -304,7 +352,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
         {/* Student List Content */}
         <div className="flex-1 overflow-y-auto px-4 custom-scrollbar">
             {filteredStudents.length > 0 ? (
-                <div className="flex flex-col gap-3 pb-20">
+                <div className="flex flex-col gap-3 pb-20 pt-2">
                     {filteredStudents.map(student => (
                         <StudentItem 
                             key={student.id} 

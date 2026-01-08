@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Printer, FileSpreadsheet, User, Users, Award, BarChart3, Check, Settings, Image as ImageIcon, FileWarning, Share2, Upload, ChevronDown, X, FileText, Loader2, ListChecks, Eye } from 'lucide-react';
+import { Printer, FileSpreadsheet, User, Users, Award, BarChart3, Check, Settings, Image as ImageIcon, FileWarning, Share2, Upload, ChevronDown, X, FileText, Loader2, ListChecks, Eye, Layers } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Student } from '../types';
 import StudentReport from './StudentReport';
@@ -15,19 +15,46 @@ const Reports: React.FC = () => {
   const { students, setStudents, classes, teacherInfo, setTeacherInfo, currentSemester, assessmentTools, certificateSettings, setCertificateSettings } = useApp();
   const [activeTab, setActiveTab] = useState<'student_report' | 'grades_record' | 'certificates' | 'summon'>('student_report');
 
+  // --- Hierarchy Helpers ---
+  const availableGrades = useMemo(() => {
+      const grades = new Set<string>();
+      students.forEach(s => {
+          if (s.grade) grades.add(s.grade);
+          else if (s.classes[0]) {
+              const match = s.classes[0].match(/^(\d+)/);
+              if (match) grades.add(match[1]);
+          }
+      });
+      if (grades.size === 0 && classes.length > 0) return ['عام']; 
+      return Array.from(grades).sort();
+  }, [students, classes]);
+
+  const getClassesForGrade = (grade: string) => {
+      if (grade === 'all') return classes;
+      return classes.filter(c => c.startsWith(grade));
+  };
+
   // --- States ---
-  const [stClass, setStClass] = useState<string>(classes[0] || '');
+  // Student Report Tab
+  const [stGrade, setStGrade] = useState<string>('all');
+  const [stClass, setStClass] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
+
+  // Grades Record Tab
+  const [gradesGrade, setGradesGrade] = useState<string>('all');
   const [gradesClass, setGradesClass] = useState<string>('all');
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [certClass, setCertClass] = useState<string>(classes[0] || '');
+  
+  // Certificates Tab
+  const [certGrade, setCertGrade] = useState<string>('all');
+  const [certClass, setCertClass] = useState<string>('');
   const [selectedCertStudents, setSelectedCertStudents] = useState<string[]>([]);
   const [showCertSettingsModal, setShowCertSettingsModal] = useState(false);
   const [tempCertSettings, setTempCertSettings] = useState(certificateSettings);
   
-  // --- Summon States ---
-  const [summonClass, setSummonClass] = useState<string>(classes[0] || '');
+  // Summon Tab
+  const [summonGrade, setSummonGrade] = useState<string>('all');
+  const [summonClass, setSummonClass] = useState<string>('');
   const [summonStudentId, setSummonStudentId] = useState<string>('');
   const [summonDate, setSummonDate] = useState(new Date().toISOString().split('T')[0]);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -36,6 +63,9 @@ const Reports: React.FC = () => {
   const [customReason, setCustomReason] = useState('');
   const [showSummonPreview, setShowSummonPreview] = useState(false);
   
+  // General
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   // Procedures Checkboxes
   const [takenProcedures, setTakenProcedures] = useState<string[]>([]);
   const availableProcedures = [
@@ -47,11 +77,16 @@ const Reports: React.FC = () => {
       'تحويل للأخصائي الاجتماعي'
   ];
 
-  // Helpers
+  // --- Filtered Data ---
   const filteredStudentsForStudentTab = useMemo(() => students.filter(s => s.classes.includes(stClass)), [students, stClass]);
   const filteredStudentsForGrades = useMemo(() => students.filter(s => gradesClass === 'all' || s.classes.includes(gradesClass)), [students, gradesClass]);
   const filteredStudentsForCert = useMemo(() => students.filter(s => s.classes.includes(certClass)), [students, certClass]);
   const availableStudentsForSummon = useMemo(() => students.filter(s => s.classes.includes(summonClass)), [summonClass, students]);
+
+  // Reset logic when hierarchy changes
+  useEffect(() => { if(getClassesForGrade(stGrade).length > 0) setStClass(getClassesForGrade(stGrade)[0]); }, [stGrade]);
+  useEffect(() => { if(getClassesForGrade(certGrade).length > 0) setCertClass(getClassesForGrade(certGrade)[0]); }, [certGrade]);
+  useEffect(() => { if(getClassesForGrade(summonGrade).length > 0) setSummonClass(getClassesForGrade(summonGrade)[0]); }, [summonGrade]);
 
   useEffect(() => {
       if(showCertSettingsModal) setTempCertSettings(certificateSettings);
@@ -110,7 +145,7 @@ const Reports: React.FC = () => {
       document.body.appendChild(container);
 
       const opt = {
-          margin: [10, 10, 10, 10],
+          margin: [5, 5, 5, 5],
           filename: filename,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { 
@@ -148,7 +183,163 @@ const Reports: React.FC = () => {
       }
   };
 
-  // --- PRINT LOGIC UPDATED ---
+  // --- 1. PRINT ALL STUDENTS REPORTS (BULK) ---
+  const handlePrintClassReports = async () => {
+      if (filteredStudentsForStudentTab.length === 0) return alert('لا يوجد طلاب في هذا الفصل');
+      
+      const finalExamName = "الامتحان النهائي";
+      const continuousTools = assessmentTools.filter(t => t.name.trim() !== finalExamName);
+      const finalTool = assessmentTools.find(t => t.name.trim() === finalExamName);
+
+      let allPagesHtml = '';
+
+      filteredStudentsForStudentTab.forEach((student) => {
+          // Logic from StudentReport.tsx
+          const behaviors = (student.behaviors || []).filter(b => !b.semester || b.semester === (currentSemester || '1'));
+          const currentSemesterGrades = (student.grades || []).filter(g => !g.semester || g.semester === (currentSemester || '1'));
+          
+          const totalPositive = behaviors.filter(b => b.type === 'positive').reduce((acc, b) => acc + b.points, 0);
+          const totalNegative = behaviors.filter(b => b.type === 'negative').reduce((acc, b) => acc + Math.abs(b.points), 0);
+          
+          let continuousSum = 0;
+          let continuousRows = '';
+          
+          if (assessmentTools.length > 0) {
+              continuousTools.forEach(tool => {
+                  const g = currentSemesterGrades.find(r => r.category.trim() === tool.name.trim());
+                  const score = g ? Number(g.score) : 0;
+                  continuousSum += score;
+                  continuousRows += `
+                    <tr>
+                        <td style="border:1px solid #000; padding:8px; text-align:right;">${teacherInfo.subject || 'المادة'}</td>
+                        <td style="border:1px solid #000; padding:8px; text-align:center; background-color:#ffedd5;">${tool.name}</td>
+                        <td style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">${g ? g.score : '-'}</td>
+                    </tr>
+                  `;
+              });
+          } else {
+              currentSemesterGrades.forEach(g => {
+                  continuousSum += (Number(g.score) || 0);
+                  continuousRows += `
+                    <tr>
+                        <td style="border:1px solid #000; padding:8px; text-align:right;">${g.subject}</td>
+                        <td style="border:1px solid #000; padding:8px; text-align:center;">${g.category}</td>
+                        <td style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">${g.score}</td>
+                    </tr>
+                  `;
+              });
+          }
+
+          let finalScore = 0;
+          let finalRow = '';
+          if (finalTool) {
+              const g = currentSemesterGrades.find(r => r.category.trim() === finalTool.name.trim());
+              finalScore = g ? Number(g.score) : 0;
+              finalRow = `
+                <tr>
+                    <td style="border:1px solid #000; padding:8px; text-align:right;">${teacherInfo.subject || 'المادة'}</td>
+                    <td style="border:1px solid #000; padding:8px; text-align:center; background-color:#fce7f3;">${finalTool.name} (40)</td>
+                    <td style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">${g ? g.score : '-'}</td>
+                </tr>
+              `;
+          }
+
+          const totalScore = assessmentTools.length > 0 ? (continuousSum + finalScore) : continuousSum;
+          const absenceCount = (student.attendance || []).filter(a => a.status === 'absent').length;
+          const truantCount = (student.attendance || []).filter(a => a.status === 'truant').length;
+
+          allPagesHtml += `
+            <div style="page-break-after: always; padding: 40px; font-family: 'Tajawal', sans-serif; direction: rtl; background: white; color: black; box-sizing: border-box; height: 100vh; position: relative;">
+                
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:2px solid #eee; padding-bottom:20px;">
+                    <div style="text-align:center; width:33%;">
+                        <p style="margin:0; font-weight:bold;">سلطنة عمان</p>
+                        <p style="margin:0; font-weight:bold;">وزارة التربية والتعليم</p>
+                        <p style="margin:0; font-weight:bold; font-size:10px;">محافظة ${teacherInfo.governorate}</p>
+                        <p style="margin:0; font-weight:bold; font-size:10px;">مدرسة ${teacherInfo.school}</p>
+                    </div>
+                    <div style="text-align:center; width:33%;">
+                        ${teacherInfo.ministryLogo ? `<img src="${teacherInfo.ministryLogo}" style="height:60px; object-fit:contain;" />` : ''}
+                        <h2 style="font-weight:900; text-decoration:underline; margin-top:10px;">تقرير مستوى طالب</h2>
+                    </div>
+                    <div style="text-align:left; width:33%; font-size:12px; font-weight:bold;">
+                        <p>العام الدراسي: ${teacherInfo.academicYear}</p>
+                        <p>الفصل: ${currentSemester === '1' ? 'الأول' : 'الثاني'}</p>
+                        <p>التاريخ: ${new Date().toLocaleDateString('en-GB')}</p>
+                    </div>
+                </div>
+
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="flex:1;">
+                        <div style="display:flex; gap:20px; margin-bottom:10px;">
+                            <div><span style="color:#64748b; font-size:10px;">الاسم:</span> <strong style="font-size:16px;">${student.name}</strong></div>
+                            <div style="width:1px; background:#cbd5e1;"></div>
+                            <div><span style="color:#64748b; font-size:10px;">الصف:</span> <strong style="font-size:16px;">${student.classes[0]}</strong></div>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">إيجابي: ${totalPositive}</span>
+                            <span style="background:#ffe4e6; color:#be123c; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">سلبي: ${totalNegative}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="font-weight:bold; font-size:16px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:5px;">التحصيل الدراسي</h3>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:12px;">
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th style="border:1px solid #000; padding:8px;">المادة</th>
+                            <th style="border:1px solid #000; padding:8px;">أداة التقويم</th>
+                            <th style="border:1px solid #000; padding:8px;">الدرجة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${continuousRows}
+                        <tr style="background:#eff6ff; font-weight:bold;">
+                            <td colspan="2" style="border:1px solid #000; padding:8px; text-align:center;">المجموع (60)</td>
+                            <td style="border:1px solid #000; padding:8px; text-align:center;">${continuousSum}</td>
+                        </tr>
+                        ${finalRow}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f1f5f9;">
+                            <td colspan="2" style="border:1px solid #000; padding:8px; font-weight:900; text-align:right;">المجموع الكلي</td>
+                            <td style="border:1px solid #000; padding:8px; font-weight:900; text-align:center; font-size:14px;">${totalScore}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="display:flex; gap:15px; margin-bottom:20px;">
+                    <div style="flex:1; border:1px solid #cbd5e1; padding:10px; border-radius:8px; text-align:center;">
+                        <span style="display:block; font-size:10px; color:#64748b;">أيام الغياب</span>
+                        <span style="font-weight:900; color:#e11d48; font-size:18px;">${absenceCount}</span>
+                    </div>
+                    <div style="flex:1; border:1px solid #cbd5e1; padding:10px; border-radius:8px; text-align:center;">
+                        <span style="display:block; font-size:10px; color:#64748b;">الهروب (التسرب)</span>
+                        <span style="font-weight:900; color:#9333ea; font-size:18px;">${truantCount}</span>
+                    </div>
+                </div>
+
+                <div style="position:absolute; bottom:40px; left:40px; right:40px; display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div style="text-align:center;">
+                        <p style="font-weight:bold; margin-bottom:30px;">معلم المادة</p>
+                        <p>${teacherInfo.name}</p>
+                    </div>
+                    <div style="text-align:center;">
+                        ${teacherInfo.stamp ? `<img src="${teacherInfo.stamp}" style="width:100px; opacity:0.7; mix-blend-mode:multiply; transform:rotate(-5deg);" />` : ''}
+                    </div>
+                    <div style="text-align:center;">
+                        <p style="font-weight:bold; margin-bottom:30px;">مدير المدرسة</p>
+                        <p>....................</p>
+                    </div>
+                </div>
+            </div>
+          `;
+      });
+
+      await generateAndSharePDF(allPagesHtml, `Class_Report_${stClass}.pdf`, false);
+  };
+
+  // --- 2. GRADES RECORD PRINT ---
   const handlePrintGradeReport = async () => {
       if (filteredStudentsForGrades.length === 0) return alert('لا يوجد طلاب في هذا الفصل');
       
@@ -263,10 +454,8 @@ const Reports: React.FC = () => {
       let pagesHtml = '';
       
       targets.forEach((s) => {
-          // Robust check for placeholder using regex to ensure we match all variations
           const placeholderRegex = /(الطالبة|الطالب)/g;
           const hasPlaceholder = placeholderRegex.test(certificateSettings.bodyText);
-          
           let body = certificateSettings.bodyText.replace(placeholderRegex, `<span style="font-weight:900; color:#000;">${s.name}</span>`);
           
           const bgStyle = certificateSettings.backgroundImage 
@@ -469,17 +658,47 @@ const Reports: React.FC = () => {
         {activeTab === 'student_report' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                  <div className="pb-4 border-b border-white/10 flex items-center gap-3"><div className="p-2 bg-indigo-900/30 rounded-xl text-indigo-400"><User size={20}/></div><div><h3 className="font-black text-lg text-white">تقرير الطالب الشامل</h3><p className="text-gray-400 text-xs font-bold">عرض وطباعة تقرير مفصل</p></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={stClass} onChange={(e) => setStClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
-                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label><div className="relative"><select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="">اختر طالباً...</option>{filteredStudentsForStudentTab.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                
+                {/* Hierarchy Filter */}
+                <div className="space-y-4">
+                    {availableGrades.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            <button onClick={() => setStGrade('all')} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${stGrade === 'all' ? 'bg-indigo-600 text-white border-indigo-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>كل المراحل</button>
+                            {availableGrades.map(g => (
+                                <button key={g} onClick={() => setStGrade(g)} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${stGrade === g ? 'bg-indigo-600 text-white border-indigo-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>صف {g}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={stClass} onChange={(e) => setStClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{getClassesForGrade(stGrade).map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label><div className="relative"><select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="">اختر طالباً...</option>{filteredStudentsForStudentTab.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    </div>
                 </div>
-                <div className="flex flex-col md:flex-row gap-4 pt-6 justify-end border-t border-white/10 mt-4"><button onClick={handleViewStudentReport} disabled={!selectedStudentId} className="bg-indigo-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all"><FileText size={18} /> معاينة التقرير الفردي</button></div>
+
+                <div className="flex flex-col md:flex-row gap-4 pt-6 justify-end border-t border-white/10 mt-4">
+                    <button onClick={handlePrintClassReports} disabled={isGeneratingPdf || !stClass} className="bg-[#374151] text-white border border-gray-500 px-6 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg hover:bg-[#4b5563] active:scale-95 transition-all">
+                        {isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Layers size={18} />} طباعة تقارير الفصل ({stClass})
+                    </button>
+                    <button onClick={handleViewStudentReport} disabled={!selectedStudentId} className="bg-indigo-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all">
+                        <FileText size={18} /> معاينة التقرير الفردي
+                    </button>
+                </div>
             </div>
         )}
         {activeTab === 'grades_record' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="pb-4 border-b border-white/10 flex items-center gap-3"><div className="p-2 bg-amber-900/30 rounded-xl text-amber-400"><BarChart3 size={20}/></div><div><h3 className="font-black text-lg text-white">سجل الدرجات</h3><p className="text-gray-400 text-xs font-bold">طباعة كشف درجات كامل</p></div></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={gradesClass} onChange={(e) => setGradesClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="all">جميع الفصول</option>{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                <div className="space-y-4">
+                    {availableGrades.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            <button onClick={() => { setGradesGrade('all'); setGradesClass('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${gradesGrade === 'all' ? 'bg-amber-600 text-white border-amber-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>كل المراحل</button>
+                            {availableGrades.map(g => (
+                                <button key={g} onClick={() => { setGradesGrade(g); setGradesClass('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${gradesGrade === g ? 'bg-amber-600 text-white border-amber-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>صف {g}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={gradesClass} onChange={(e) => setGradesClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="all">جميع الفصول</option>{getClassesForGrade(gradesGrade).map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                </div>
                 <div className="flex justify-end pt-6"><button onClick={handlePrintGradeReport} disabled={isGeneratingPdf} className="bg-amber-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/30 hover:bg-amber-600 active:scale-95 transition-all w-full md:w-auto justify-center">{isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Printer size={18} />} طباعة السجل</button></div>
             </div>
         )}
@@ -487,7 +706,17 @@ const Reports: React.FC = () => {
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex justify-between items-start pb-4 border-b border-white/10"><div className="flex items-center gap-3"><div className="p-2 bg-emerald-900/30 rounded-xl text-emerald-400"><Award size={20}/></div><div><h3 className="font-black text-lg text-white">شهادات التفوق</h3><p className="text-gray-400 text-xs font-bold">طباعة شهادات تقدير</p></div></div><button onClick={() => setShowCertSettingsModal(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white"><Settings className="w-5 h-5" /></button></div>
                 <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={certClass} onChange={(e) => { setCertClass(e.target.value); setSelectedCertStudents([]); }} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    <div className="space-y-4">
+                        {availableGrades.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                <button onClick={() => setCertGrade('all')} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${certGrade === 'all' ? 'bg-emerald-600 text-white border-emerald-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>كل المراحل</button>
+                                {availableGrades.map(g => (
+                                    <button key={g} onClick={() => setCertGrade(g)} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${certGrade === g ? 'bg-emerald-600 text-white border-emerald-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>صف {g}</button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل الدراسي</label><div className="relative"><select value={certClass} onChange={(e) => { setCertClass(e.target.value); setSelectedCertStudents([]); }} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{getClassesForGrade(certGrade).map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    </div>
                     <div className="space-y-2"><div className="flex justify-between items-center px-2"><label className="text-[10px] font-black text-gray-400">تحديد الطلاب ({selectedCertStudents.length})</label><button onClick={selectAllCertStudents} className="text-[10px] text-emerald-400 font-bold hover:underline">{selectedCertStudents.length === filteredStudentsForCert.length ? 'إلغاء الكل' : 'تحديد الكل'}</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">{filteredStudentsForCert.map(s => (<button key={s.id} onClick={() => toggleCertStudent(s.id)} className={`p-3 rounded-xl border text-[10px] font-bold transition-all flex items-center justify-between group ${selectedCertStudents.includes(s.id) ? 'bg-emerald-600 text-white border-emerald-500 shadow-md' : 'glass-card text-white/70 border-white/10 hover:bg-white/10'}`}>{s.name}{selectedCertStudents.includes(s.id) && <Check size={14} className="bg-white/20 rounded-full p-0.5" />}</button>))}</div></div>
                 </div>
                 <div className="flex justify-end pt-6 border-t border-white/10 mt-2"><button onClick={printCertificates} disabled={isGeneratingPdf || selectedCertStudents.length === 0} className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 active:scale-95 transition-all w-full md:w-auto justify-center">{isGeneratingPdf ? <Loader2 className="animate-spin w-4 h-4"/> : <Award size={18} />} طباعة الشهادات</button></div>
@@ -496,9 +725,19 @@ const Reports: React.FC = () => {
         {activeTab === 'summon' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="pb-4 border-b border-white/10 flex items-center gap-3"><div className="p-2 bg-rose-900/30 rounded-xl text-rose-400"><FileWarning size={20}/></div><div><h3 className="font-black text-lg text-white">استدعاء ولي أمر</h3><p className="text-gray-400 text-xs font-bold">إنشاء خطاب رسمي</p></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل</label><div className="relative"><select value={summonClass} onChange={(e) => setSummonClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{classes.map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
-                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label><div className="relative"><select value={summonStudentId} onChange={(e) => setSummonStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="">اختر...</option>{availableStudentsForSummon.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                <div className="space-y-4">
+                    {availableGrades.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            <button onClick={() => setSummonGrade('all')} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${summonGrade === 'all' ? 'bg-rose-600 text-white border-rose-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>كل المراحل</button>
+                            {availableGrades.map(g => (
+                                <button key={g} onClick={() => setSummonGrade(g)} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${summonGrade === g ? 'bg-rose-600 text-white border-rose-700' : 'glass-card bg-[#374151] border-gray-600 text-gray-300'}`}>صف {g}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الفصل</label><div className="relative"><select value={summonClass} onChange={(e) => setSummonClass(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]">{getClassesForGrade(summonGrade).map(c => <option key={c} value={c}>{c}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">الطالب</label><div className="relative"><select value={summonStudentId} onChange={(e) => setSummonStudentId(e.target.value)} className="w-full p-4 glass-input rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer text-white bg-[#111827]"><option value="">اختر...</option>{availableStudentsForSummon.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /></div></div>
+                    </div>
                 </div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 mr-2">سبب الاستدعاء</label><div className="flex flex-wrap gap-2">{[{ id: 'absence', label: 'تكرار الغياب' }, { id: 'truant', label: 'تسرب حصص' }, { id: 'behavior', label: 'سلوكيات' }, { id: 'level', label: 'تدني مستوى' }, { id: 'other', label: 'آخر ..' }].map((reason) => (<button key={reason.id} onClick={() => setReasonType(reason.id)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all border ${reasonType === reason.id ? 'bg-rose-600 text-white border-rose-600 shadow-md transform scale-105' : 'glass-input text-gray-300 border-transparent hover:bg-white/10'}`}>{reason.label}</button>))}</div>{reasonType === 'other' && (<textarea value={customReason} onChange={(e) => setCustomReason(e.target.value)} placeholder="اكتب السبب هنا..." className="w-full p-4 glass-input rounded-2xl text-sm mt-2 resize-none h-24 outline-none border border-white/10 focus:border-rose-500 transition-colors text-white" />)}</div>
                 <div className="space-y-2 border-t border-white/10 pt-4"><label className="text-[10px] font-black text-gray-400 mr-2 flex items-center gap-2"><ListChecks className="w-3 h-3" /> الإجراءات المتخذة مسبقاً</label><div className="grid grid-cols-2 gap-2">{availableProcedures.map((proc) => (<button key={proc} onClick={() => toggleProcedure(proc)} className={`p-3 rounded-xl text-[10px] font-bold text-right transition-all border flex items-center justify-between ${takenProcedures.includes(proc) ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200' : 'glass-card border-white/5 text-gray-400 hover:bg-white/5'}`}>{proc}{takenProcedures.includes(proc) && <Check className="w-3 h-3 text-indigo-400" />}</button>))}</div></div>
