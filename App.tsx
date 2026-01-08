@@ -137,6 +137,8 @@ const AppContent: React.FC = () => {
                   setPeriodTimes={setPeriodTimes}
                   notificationsEnabled={notificationsEnabled}
                   onToggleNotifications={handleToggleNotifications}
+                  currentSemester={currentSemester}
+                  onSemesterChange={setCurrentSemester}
               />;
           case 'attendance':
               return <AttendanceTracker students={students} classes={classes} setStudents={setStudents} />;
@@ -170,7 +172,7 @@ const AppContent: React.FC = () => {
           case 'guide': return <UserGuide />;
           case 'settings': return <Settings />;
           case 'about': return <About />;
-          default: return <Dashboard students={students} teacherInfo={teacherInfo} onUpdateTeacherInfo={() => {}} schedule={schedule} onUpdateSchedule={() => {}} onSelectStudent={() => {}} onNavigate={handleNavigate} onOpenSettings={() => {}} periodTimes={periodTimes} setPeriodTimes={() => {}} notificationsEnabled={false} onToggleNotifications={() => {}} />;
+          default: return <Dashboard students={students} teacherInfo={teacherInfo} onUpdateTeacherInfo={() => {}} schedule={schedule} onUpdateSchedule={() => {}} onSelectStudent={() => {}} onNavigate={handleNavigate} onOpenSettings={() => {}} periodTimes={periodTimes} setPeriodTimes={() => {}} notificationsEnabled={false} onToggleNotifications={() => {}} currentSemester={currentSemester} onSemesterChange={setCurrentSemester} />;
       }
   };
 
@@ -258,8 +260,9 @@ const AppContent: React.FC = () => {
 
         {/* --- MAIN CONTENT AREA --- */}
         <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-[#111827]">
+            {/* Removed top padding here to eliminate gap. Padding/Safe Area is now handled in individual components' headers */}
             <div 
-                className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-28 md:pb-8 pt-safe md:pt-8 px-4 md:px-8"
+                className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-28 md:pb-8 px-4 md:px-8"
                 id="main-scroll-container"
             >
                 <div className="max-w-5xl mx-auto w-full min-h-full">
@@ -307,7 +310,7 @@ const AppContent: React.FC = () => {
                             <span 
                                 className={`
                                     text-[10px] font-black transition-all duration-300 
-                                    ${isActive ? 'translate-y-1 text-white opacity-100' : 'text-gray-500 opacity-80 group-hover:text-emerald-400'}
+                                    ${isActive ? 'translate-y-1 text-white opacity-100' : 'text-gray-500 opacity-80 group-hover:text-indigo-400'}
                                 `}
                             >
                                 {item.label}
