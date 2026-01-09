@@ -129,38 +129,26 @@ const UserGuide: React.FC = () => {
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-xl text-indigo-800 mb-2 border-b pb-2">مركز التقارير</h3>
-                            <p className="text-gray-700 mb-2">القلب النابض للتطبيق، حيث يمكنك طباعة المخرجات الورقية.</p>
+                            <h3 className="font-bold text-xl text-indigo-800 mb-2 border-b pb-2">التقارير</h3>
+                            <p className="text-gray-700 mb-2">مركز التقارير المتكامل لإصدار المستندات الرسمية.</p>
                             <ul className="list-disc list-inside text-gray-600 space-y-1 mr-4">
-                                <li><strong>تقرير الطالب الشامل:</strong> وثيقة PDF تحتوي على بيانات الطالب، درجاته، سلوكه، ورسم بياني لغيابه.</li>
-                                <li><strong>شهادات التقدير:</strong> تصميم شهادات احترافية للطلاب المتفوقين وتصديرها للطباعة.</li>
-                                <li><strong>استدعاء ولي أمر:</strong> نموذج رسمي جاهز للاستدعاء، يحتوي على سبب الاستدعاء وموعد الحضور.</li>
+                                <li><strong>تقرير طالب شامل:</strong> تقرير PDF يحتوي على بيانات الطالب، درجاته، غيابه، وسلوكه في صفحة واحدة.</li>
+                                <li><strong>سجل الدرجات:</strong> كشف درجات لكامل الفصل الدراسي جاهز للطباعة.</li>
+                                <li><strong>الشهادات:</strong> إصدار شهادات تقدير للطلاب المتفوقين أو المتحسنين.</li>
+                                <li><strong>استدعاء ولي أمر:</strong> نموذج رسمي لاستدعاء ولي الأمر لمناقشة مستوى الطالب.</li>
                             </ul>
                         </div>
                     </div>
                 </section>
-
-                <hr className="my-8 border-gray-100 print:hidden" />
-
-                {/* Section 4: Tips */}
-                <section className="mb-8 page-break-avoid">
-                    <h2 className="text-2xl font-black text-slate-800 mb-4 flex items-center gap-2">
-                        <AlertCircle className="w-6 h-6 text-amber-500" />
-                        4. نصائح هامة
-                    </h2>
-                    <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
-                        <ul className="list-disc list-inside text-gray-700 space-y-2">
-                            <li>قم دائماً بعمل <strong>نسخة احتياطية</strong> لبياناتك من صفحة "الإعدادات" بشكل أسبوعي لتجنب فقدان البيانات في حال ضياع الهاتف أو عطل التطبيق.</li>
-                            <li>تأكد من إدخال أرقام هواتف أولياء الأمور عند إضافة الطلاب للاستفادة من ميزة المراسلة عبر الواتساب.</li>
-                            <li>عند الطباعة، تأكد من اختيار حجم الورق A4 وإلغاء الهوامش (Margins: None) للحصول على أفضل تنسيق للتقارير.</li>
-                        </ul>
+                
+                <div className="mt-12 bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-start gap-4">
+                    <AlertCircle className="w-8 h-8 text-amber-500 shrink-0" />
+                    <div>
+                        <h4 className="font-bold text-amber-800 mb-1">تنبيه هام حول البيانات</h4>
+                        <p className="text-sm text-gray-700">
+                            تطبيق راصد يحتفظ بجميع البيانات محلياً على جهازك. يُنصح بعمل <strong>نسخة احتياطية</strong> بشكل دوري من صفحة الإعدادات لضمان عدم فقدان البيانات في حال عطل الجهاز أو حذف التطبيق.
+                        </p>
                     </div>
-                </section>
-
-                {/* Print Footer */}
-                <div className="text-center mt-12 pt-8 border-t border-gray-200">
-                    <p className="font-bold text-gray-500">تم إنشاء هذا الدليل بواسطة تطبيق راصد</p>
-                    <p className="text-sm text-gray-400">جميع الحقوق محفوظة للمطور © {new Date().getFullYear()}</p>
                 </div>
 
             </div>
