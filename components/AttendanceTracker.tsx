@@ -57,7 +57,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
       }
       
       setStudents(prev => prev.map(s => {
-          // Check filters
           const matchesClass = classFilter === 'all' || s.classes.includes(classFilter);
           let matchesGrade = true;
           if (selectedGrade !== 'all') {
@@ -77,7 +76,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
       }));
   };
 
-  // Logic: Extract unique Grades
   const availableGrades = useMemo(() => {
       const grades = new Set<string>();
       students.forEach(s => {
@@ -87,11 +85,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
               if (match) grades.add(match[1]);
           }
       });
-      // REMOVED "GENERAL" FALLBACK
       return Array.from(grades).sort();
   }, [students, classes]);
 
-  // Logic: Filter classes based on selected grade
   const visibleClasses = useMemo(() => {
       if (selectedGrade === 'all') return classes;
       return classes.filter(c => c.startsWith(selectedGrade));
@@ -117,7 +113,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
   }, [filteredStudents, selectedDate]);
 
   const performNotification = async (method: 'whatsapp' | 'sms') => {
-      // ... same logic (unchanged)
       if(!notificationTarget || !notificationTarget.student.parentPhone) { alert('لا يوجد رقم هاتف مسجل'); return; }
       const { student, type } = notificationTarget;
       let cleanPhone = student.parentPhone.replace(/[^0-9]/g, '');
@@ -137,7 +132,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
   };
 
   const handleExportDailyExcel = async () => {
-      // ... same logic (unchanged)
       if (filteredStudents.length === 0) return alert('لا يوجد طلاب');
       setIsExportingExcel(true);
       try {
@@ -177,107 +171,106 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
   };
 
   return (
-    <div className="flex flex-col h-full text-gray-100 relative animate-in fade-in duration-500">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-30 pb-2 glass-heavy bg-[#1f2937] border-b border-gray-700 shadow-md -mx-4 px-4 -mt-4">
+    <div className="flex flex-col h-full text-slate-800 relative animate-in fade-in duration-500">
+        {/* Sticky Header (Light) */}
+        <div className="sticky top-0 z-30 pb-2 bg-[#f3f4f6] -mx-4 px-4 -mt-4">
             <div className="flex justify-between items-center mb-4 pt-safe mt-4">
-                <h1 className="text-2xl font-black tracking-tight text-white">سجل الغياب</h1>
-                <button onClick={handleExportDailyExcel} disabled={isExportingExcel} className="w-10 h-10 glass-icon bg-[#374151] border border-gray-600 rounded-full text-emerald-500 shadow-sm flex items-center justify-center active:scale-95 transition-transform hover:bg-[#4b5563]" title="تصدير سجل شهري">
+                <h1 className="text-2xl font-black tracking-tight text-slate-900">سجل الغياب</h1>
+                <button onClick={handleExportDailyExcel} disabled={isExportingExcel} className="w-10 h-10 glass-icon bg-white border border-slate-200 rounded-2xl text-emerald-600 shadow-sm flex items-center justify-center active:scale-95 transition-transform hover:shadow-md" title="تصدير سجل شهري">
                      {isExportingExcel ? <Loader2 className="w-5 h-5 animate-spin"/> : <Share2 className="w-5 h-5"/>}
                 </button>
             </div>
 
             {/* Date Scroller */}
-            <div className="flex items-center justify-between glass-card bg-[#374151] rounded-2xl p-1 mb-3 shadow-sm border border-gray-600 mx-1">
-                <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toLocaleDateString('en-CA')); }} className="p-3 rounded-xl hover:bg-[#4b5563] active:bg-[#1f2937] transition-colors"><ChevronDown className="w-5 h-5 rotate-90 text-gray-400"/></button>
-                <div className="flex items-center gap-2 font-black text-sm text-white">
-                    <Calendar className="w-4 h-4 text-blue-400"/>
+            <div className="flex items-center justify-between bg-white rounded-2xl p-1.5 mb-3 shadow-sm border border-slate-200 mx-1">
+                <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toLocaleDateString('en-CA')); }} className="p-3 rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-slate-500"><ChevronDown className="w-5 h-5 rotate-90"/></button>
+                <div className="flex items-center gap-2 font-black text-sm text-slate-900 bg-slate-50 px-4 py-2 rounded-xl">
+                    <Calendar className="w-4 h-4 text-indigo-500"/>
                     {formatDateDisplay(selectedDate)}
                 </div>
-                <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toLocaleDateString('en-CA')); }} className="p-3 rounded-xl hover:bg-[#4b5563] active:bg-[#1f2937] transition-colors"><ChevronDown className="w-5 h-5 -rotate-90 text-gray-400"/></button>
+                <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toLocaleDateString('en-CA')); }} className="p-3 rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-slate-500"><ChevronDown className="w-5 h-5 -rotate-90"/></button>
             </div>
 
             {/* Filters */}
             <div className="space-y-2 mb-2 px-1">
                 {availableGrades.length > 0 && (
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        <button onClick={() => { setSelectedGrade('all'); setClassFilter('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${selectedGrade === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600'}`}>كل المراحل</button>
+                        <button onClick={() => { setSelectedGrade('all'); setClassFilter('all'); }} className={`px-4 py-2 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${selectedGrade === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500 border-slate-200 shadow-sm'}`}>كل المراحل</button>
                         {availableGrades.map(g => (
-                            <button key={g} onClick={() => { setSelectedGrade(g); setClassFilter('all'); }} className={`px-4 py-1.5 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${selectedGrade === g ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600'}`}>صف {g}</button>
+                            <button key={g} onClick={() => { setSelectedGrade(g); setClassFilter('all'); }} className={`px-4 py-2 text-[10px] font-bold whitespace-nowrap rounded-xl transition-all border ${selectedGrade === g ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500 border-slate-200 shadow-sm'}`}>صف {g}</button>
                         ))}
                     </div>
                 )}
 
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                     {visibleClasses.map(c => (
-                        <button key={c} onClick={() => setClassFilter(c)} className={`px-5 py-2 text-xs font-bold whitespace-nowrap rounded-xl transition-all border ${classFilter === c ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'glass-card bg-[#374151] text-gray-300 border-gray-600 hover:bg-[#4b5563]'}`}>{c}</button>
+                        <button key={c} onClick={() => setClassFilter(c)} className={`px-5 py-2.5 text-xs font-bold whitespace-nowrap rounded-xl transition-all border ${classFilter === c ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-gray-50 shadow-sm'}`}>{c}</button>
                     ))}
                 </div>
             </div>
         </div>
 
-        {/* ... Rest of Stats and List (Unchanged) ... */}
         {/* Live Stats Strip */}
-        <div className="grid grid-cols-5 gap-px bg-gray-700 rounded-2xl overflow-hidden mx-1 mb-4 shadow-sm border border-gray-600 mt-4">
-            <button onClick={() => handleMarkAll('present')} className="bg-[#1f2937] py-3 flex flex-col items-center justify-center active:bg-[#111827] transition-colors hover:bg-[#374151]">
-                <span className="text-[10px] font-bold text-gray-400 mb-1">حضور</span>
-                <span className="text-sm font-black text-emerald-500">{stats.present}</span>
+        <div className="grid grid-cols-5 gap-px bg-slate-200 rounded-2xl overflow-hidden mx-1 mb-4 shadow-sm border border-slate-200 mt-2">
+            <button onClick={() => handleMarkAll('present')} className="bg-white py-3 flex flex-col items-center justify-center active:bg-gray-50 transition-colors hover:bg-emerald-50 group">
+                <span className="text-[10px] font-bold text-gray-400 mb-1 group-hover:text-emerald-500">حضور</span>
+                <span className="text-sm font-black text-emerald-600">{stats.present}</span>
             </button>
-            <button onClick={() => handleMarkAll('absent')} className="bg-[#1f2937] py-3 flex flex-col items-center justify-center active:bg-[#111827] transition-colors hover:bg-[#374151]">
-                <span className="text-[10px] font-bold text-gray-400 mb-1">غياب</span>
-                <span className="text-sm font-black text-rose-500">{stats.absent}</span>
+            <button onClick={() => handleMarkAll('absent')} className="bg-white py-3 flex flex-col items-center justify-center active:bg-gray-50 transition-colors hover:bg-rose-50 group">
+                <span className="text-[10px] font-bold text-gray-400 mb-1 group-hover:text-rose-500">غياب</span>
+                <span className="text-sm font-black text-rose-600">{stats.absent}</span>
             </button>
-            <button onClick={() => handleMarkAll('late')} className="bg-[#1f2937] py-3 flex flex-col items-center justify-center active:bg-[#111827] transition-colors hover:bg-[#374151]">
-                <span className="text-[10px] font-bold text-gray-400 mb-1">تأخر</span>
+            <button onClick={() => handleMarkAll('late')} className="bg-white py-3 flex flex-col items-center justify-center active:bg-gray-50 transition-colors hover:bg-amber-50 group">
+                <span className="text-[10px] font-bold text-gray-400 mb-1 group-hover:text-amber-500">تأخر</span>
                 <span className="text-sm font-black text-amber-500">{stats.late}</span>
             </button>
-            <button onClick={() => handleMarkAll('truant')} className="bg-[#1f2937] py-3 flex flex-col items-center justify-center active:bg-[#111827] transition-colors hover:bg-[#374151]">
-                <span className="text-[10px] font-bold text-gray-400 mb-1">تسرب</span>
-                <span className="text-sm font-black text-purple-500">{stats.truant}</span>
+            <button onClick={() => handleMarkAll('truant')} className="bg-white py-3 flex flex-col items-center justify-center active:bg-gray-50 transition-colors hover:bg-purple-50 group">
+                <span className="text-[10px] font-bold text-gray-400 mb-1 group-hover:text-purple-500">تسرب</span>
+                <span className="text-sm font-black text-purple-600">{stats.truant}</span>
             </button>
-            <button onClick={() => handleMarkAll('reset')} className="bg-[#1f2937] py-3 flex flex-col items-center justify-center active:bg-[#111827] transition-colors hover:bg-[#374151]">
-                <span className="text-[10px] font-bold text-gray-400 mb-1">باقي</span>
-                <span className="text-sm font-black text-gray-500">{stats.total - (stats.present + stats.absent + stats.late + stats.truant)}</span>
+            <button onClick={() => handleMarkAll('reset')} className="bg-white py-3 flex flex-col items-center justify-center active:bg-gray-50 transition-colors hover:bg-gray-50 group">
+                <span className="text-[10px] font-bold text-gray-400 mb-1 group-hover:text-slate-600">باقي</span>
+                <span className="text-sm font-black text-slate-500">{stats.total - (stats.present + stats.absent + stats.late + stats.truant)}</span>
             </button>
         </div>
 
-        {/* Student List */}
+        {/* Student List - ENHANCED CARDS */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-1 pb-24">
             {filteredStudents.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                     {filteredStudents.map((student, index) => {
                         const status = getStatus(student);
                         return (
                             <div 
                                 key={student.id} 
                                 className={`
-                                    group flex items-center justify-between p-4 rounded-2xl border border-blue-500 transition-all duration-300 relative overflow-hidden shimmer-hover
+                                    group flex items-center justify-between p-4 rounded-[1.2rem] border transition-all duration-300 relative overflow-hidden shimmer-hover
                                     ${status 
-                                        ? 'bg-[#374151] border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]' 
-                                        : 'bg-[#1f2937] border-indigo-500/40 hover:bg-[#374151] hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10'
+                                        ? 'bg-white border-indigo-300 shadow-[0_4px_12px_-2px_rgba(79,70,229,0.1)]' 
+                                        : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md shadow-sm'
                                     }
                                 `}
                             >
                                 {/* Left: Info */}
-                                <div className="flex items-center gap-3 min-w-0 flex-1 relative z-10">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-[#374151] text-gray-300 overflow-hidden border border-gray-600 transition-colors group-hover:border-indigo-400`}>
+                                <div className="flex items-center gap-4 min-w-0 flex-1 relative z-10">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold shrink-0 bg-gray-50 text-slate-400 overflow-hidden border border-slate-200 transition-colors group-hover:border-indigo-200 shadow-inner`}>
                                         {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover" /> : student.name.charAt(0)}
                                     </div>
                                     <div className="min-w-0">
-                                        <h3 className={`text-sm font-bold truncate transition-colors ${status ? 'text-white' : 'text-gray-300 group-hover:text-indigo-400'}`}>{student.name}</h3>
+                                        <h3 className={`text-sm font-bold truncate transition-colors ${status ? 'text-indigo-900' : 'text-slate-800 group-hover:text-indigo-600'}`}>{student.name}</h3>
                                         {status && (
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                                                    status === 'present' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' :
-                                                    status === 'absent' ? 'bg-rose-900/30 text-rose-400 border border-rose-500/30' :
-                                                    status === 'late' ? 'bg-amber-900/30 text-amber-400 border border-amber-500/30' :
-                                                    'bg-purple-900/30 text-purple-400 border border-purple-500/30'
+                                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg ${
+                                                    status === 'present' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                    status === 'absent' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                                                    status === 'late' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                    'bg-purple-100 text-purple-700 border border-purple-200'
                                                 }`}>
                                                     {status === 'present' ? 'حضور' : status === 'absent' ? 'غياب' : status === 'late' ? 'تأخر' : 'تسرب'}
                                                 </span>
                                                 {(status !== 'present') && (
-                                                    <button onClick={() => setNotificationTarget({ student, type: status as any })} className="text-blue-400 bg-blue-900/20 p-1 rounded-full hover:bg-blue-900/40 border border-blue-500/20">
-                                                        <MessageCircle className="w-3 h-3" />
+                                                    <button onClick={() => setNotificationTarget({ student, type: status as any })} className="text-blue-500 bg-blue-50 p-1.5 rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">
+                                                        <MessageCircle className="w-3.5 h-3.5" />
                                                     </button>
                                                 )}
                                             </div>
@@ -285,18 +278,18 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
                                     </div>
                                 </div>
 
-                                {/* Right: Action Buttons (Compact) */}
-                                <div className="flex items-center gap-1.5 shrink-0 relative z-10">
-                                    <button onClick={() => toggleAttendance(student.id, 'present')} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${status === 'present' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/50' : 'bg-[#374151] text-gray-500 hover:bg-emerald-900/20 hover:text-emerald-400 border border-gray-600'}`}>
+                                {/* Right: Action Buttons */}
+                                <div className="flex items-center gap-2 shrink-0 relative z-10">
+                                    <button onClick={() => toggleAttendance(student.id, 'present')} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'present' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-500 border border-slate-200'}`}>
                                         <Check className="w-5 h-5" strokeWidth={3} />
                                     </button>
-                                    <button onClick={() => toggleAttendance(student.id, 'absent')} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${status === 'absent' ? 'bg-rose-600 text-white shadow-md shadow-rose-900/50' : 'bg-[#374151] text-gray-500 hover:bg-rose-900/20 hover:text-rose-400 border border-gray-600'}`}>
+                                    <button onClick={() => toggleAttendance(student.id, 'absent')} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'absent' ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' : 'bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 border border-slate-200'}`}>
                                         <X className="w-5 h-5" strokeWidth={3} />
                                     </button>
-                                    <button onClick={() => toggleAttendance(student.id, 'late')} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${status === 'late' ? 'bg-amber-600 text-white shadow-md shadow-amber-900/50' : 'bg-[#374151] text-gray-500 hover:bg-amber-900/20 hover:text-amber-400 border border-gray-600'}`}>
+                                    <button onClick={() => toggleAttendance(student.id, 'late')} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'late' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-500 border border-slate-200'}`}>
                                         <Clock className="w-5 h-5" strokeWidth={3} />
                                     </button>
-                                    <button onClick={() => toggleAttendance(student.id, 'truant')} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${status === 'truant' ? 'bg-purple-600 text-white shadow-md shadow-purple-900/50' : 'bg-[#374151] text-gray-500 hover:bg-purple-900/20 hover:text-purple-400 border border-gray-600'}`}>
+                                    <button onClick={() => toggleAttendance(student.id, 'truant')} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${status === 'truant' ? 'bg-purple-600 text-white shadow-lg shadow-purple-200' : 'bg-slate-50 text-slate-400 hover:bg-purple-50 hover:text-purple-500 border border-slate-200'}`}>
                                         <DoorOpen className="w-5 h-5" strokeWidth={3} />
                                     </button>
                                 </div>
@@ -306,29 +299,29 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 opacity-40">
-                    <UserCircle2 className="w-16 h-16 text-gray-500 mb-4" />
-                    <p className="text-xs font-bold text-gray-500">لا يوجد طلاب</p>
+                    <UserCircle2 className="w-16 h-16 text-gray-300 mb-4" />
+                    <p className="text-xs font-bold text-gray-400">لا يوجد طلاب</p>
                 </div>
             )}
         </div>
 
-        {/* Notification Modal (Dark) */}
+        {/* Notification Modal */}
         <Modal isOpen={!!notificationTarget} onClose={() => setNotificationTarget(null)} className="max-w-xs rounded-[2rem]">
             <div className="text-center">
-                <div className="w-16 h-16 bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400 shadow-sm border border-blue-500/20">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500 shadow-sm border border-blue-100">
                     <MessageCircle className="w-8 h-8" />
                 </div>
-                <h3 className="font-black text-lg mb-1 text-white">إشعار ولي الأمر</h3>
-                <p className="text-xs text-gray-400 mb-6 font-bold">{notificationTarget?.student.name} - {notificationTarget?.type === 'truant' ? 'تسرب من الحصة' : (notificationTarget?.type === 'absent' ? 'غياب' : 'تأخير')}</p>
+                <h3 className="font-black text-lg mb-1 text-slate-800">إشعار ولي الأمر</h3>
+                <p className="text-xs text-gray-500 mb-6 font-bold">{notificationTarget?.student.name} - {notificationTarget?.type === 'truant' ? 'تسرب من الحصة' : (notificationTarget?.type === 'absent' ? 'غياب' : 'تأخير')}</p>
                 
                 <div className="space-y-3">
-                    <button onClick={() => performNotification('whatsapp')} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 transition-all active:scale-95">
+                    <button onClick={() => performNotification('whatsapp')} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-200 transition-all active:scale-95">
                         <MessageCircle className="w-5 h-5" /> واتساب
                     </button>
-                    <button onClick={() => performNotification('sms')} className="w-full bg-[#374151] hover:bg-[#4b5563] text-gray-200 py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 border border-gray-600">
+                    <button onClick={() => performNotification('sms')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 border border-slate-700">
                         رسالة نصية (SMS)
                     </button>
-                    <button onClick={() => setNotificationTarget(null)} className="text-xs font-bold text-gray-500 mt-2 hover:text-gray-300">إلغاء</button>
+                    <button onClick={() => setNotificationTarget(null)} className="text-xs font-bold text-gray-400 mt-2 hover:text-gray-600">إلغاء</button>
                 </div>
             </div>
         </Modal>

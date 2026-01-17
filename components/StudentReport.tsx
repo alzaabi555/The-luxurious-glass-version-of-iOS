@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { Student, GradeRecord } from '../types';
-import { Award, AlertCircle, Trash2, Loader2, FileText, LayoutList, ArrowRight, Printer, CalendarX, DoorOpen } from 'lucide-react';
+import { Student } from '../types';
+import { Award, AlertCircle, Trash2, Loader2, FileText, LayoutList, ArrowRight, Printer } from 'lucide-react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { useApp } from '../context/AppContext';
-import html2pdf from 'html2pdf.js'; // Explicit import to fix "library not ready"
+import html2pdf from 'html2pdf.js';
 
 interface StudentReportProps {
   student: Student;
@@ -17,7 +17,7 @@ interface StudentReportProps {
 }
 
 const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent, currentSemester, teacherInfo, onBack }) => {
-  const { assessmentTools, certificateSettings } = useApp();
+  const { assessmentTools } = useApp();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   const behaviors = (student.behaviors || []).filter(b => !b.semester || b.semester === (currentSemester || '1'));
@@ -66,57 +66,70 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
       }
   };
 
-  const exportPDF = async (element: HTMLElement, filename: string, setLoader: (val: boolean) => void, orientation: 'portrait' | 'landscape' = 'portrait') => {
-    setLoader(true);
-    const opt = {
-        margin: 0,
-        filename: filename,
-        image: { type: 'jpeg', quality: 1.0 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: orientation }
-    };
-
-    try {
-        const worker = html2pdf().set(opt).from(element).toPdf();
-        if (Capacitor.isNativePlatform()) {
-             const pdfBase64 = await worker.output('datauristring');
-             const base64Data = pdfBase64.split(',')[1];
-             const result = await Filesystem.writeFile({ path: filename, data: base64Data, directory: Directory.Cache });
-             await Share.share({ title: filename, url: result.uri, dialogTitle: 'مشاركة/حفظ' });
-        } else {
-             worker.save();
-        }
-    } catch (err) { console.error('PDF Error:', err); } finally { setLoader(false); }
-  };
-
   const handlePrintReport = async () => {
       const element = document.getElementById('report-content');
-      if (element) {
-          await exportPDF(element, `Report_${student.name}.pdf`, setIsGeneratingPdf);
-      } else {
-          alert('خطأ في تحديد محتوى التقرير');
+      if (!element) return;
+
+      setIsGeneratingPdf(true);
+      window.scrollTo(0, 0); // ضمان البدء من الأعلى
+
+      const opt = {
+          margin: 10,
+          filename: `Report_${student.name}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+              scale: 2, 
+              useCORS: true, 
+              logging: false,
+              // لم نعد بحاجة لقسر الألوان لأن التطبيق أصلاً فاتح
+              windowWidth: 800
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      try {
+          // نستخدم العنصر مباشرة دون استنساخ معقد
+          const worker = html2pdf().set(opt).from(element).toPdf();
+          
+          if (Capacitor.isNativePlatform()) {
+               const pdfBase64 = await worker.output('datauristring');
+               const base64Data = pdfBase64.split(',')[1];
+               const result = await Filesystem.writeFile({ 
+                   path: `Report_${student.name}.pdf`, 
+                   data: base64Data, 
+                   directory: Directory.Cache 
+               });
+               await Share.share({ title: `Report_${student.name}`, url: result.uri });
+          } else {
+               worker.save();
+          }
+      } catch (err) { 
+          console.error('PDF Error:', err); 
+          alert('حدث خطأ أثناء الطباعة');
+      } finally { 
+          setIsGeneratingPdf(false); 
       }
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 text-slate-900 dark:text-white">
+    <div className="flex flex-col h-full space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 text-slate-900">
         
         {/* Header Action Bar */}
-        <div className="flex items-center justify-between glass-heavy p-4 rounded-[2rem] border border-white/20">
+        <div className="flex items-center justify-between glass-heavy p-4 rounded-[2rem]">
             <div className="flex items-center gap-3">
-                <button onClick={onBack} className="p-3 rounded-full glass-icon hover:bg-white/10 transition-colors">
-                    <ArrowRight className="w-5 h-5" />
+                <button onClick={onBack} className="p-3 rounded-full glass-icon hover:bg-gray-100 transition-colors">
+                    <ArrowRight className="w-5 h-5 text-slate-600" />
                 </button>
                 <div>
-                    <h2 className="text-lg font-black">{student.name}</h2>
-                    <p className="text-xs font-bold text-slate-500 dark:text-white/60">{student.classes[0]} • تقرير الفصل {currentSemester}</p>
+                    <h2 className="text-lg font-black text-slate-900">{student.name}</h2>
+                    <p className="text-xs font-bold text-gray-500">{student.classes[0]} • تقرير الفصل {currentSemester}</p>
                 </div>
             </div>
             <div className="flex gap-2">
                 <button 
                     onClick={handlePrintReport} 
                     disabled={isGeneratingPdf}
-                    className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-500/30 active:scale-95 transition-all flex items-center gap-2"
+                    className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-200 active:scale-95 transition-all flex items-center gap-2"
                 >
                     {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
                     طباعة التقرير
@@ -126,11 +139,10 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
 
         {/* Report Preview (Screen) */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
-            {/* Added 'force-print-style' class to ensure correct colors */}
-            <div id="report-content" className="force-print-style bg-white text-slate-900 p-8 rounded-none md:rounded-[2rem] max-w-4xl mx-auto shadow-xl relative overflow-hidden border-[3px] border-black box-border" dir="rtl">
+            <div id="report-content" className="bg-white text-slate-900 p-8 rounded-none md:rounded-[2rem] max-w-4xl mx-auto shadow-sm border border-gray-200 relative overflow-hidden box-border" dir="rtl">
                 
                 {/* Formal Header */}
-                <div className="flex justify-between items-start mb-8 border-b-2 border-slate-900/10 pb-6">
+                <div className="flex justify-between items-start mb-8 border-b-2 border-gray-100 pb-6">
                     <div className="text-center w-1/3">
                         <p className="font-bold text-sm mb-1">سلطنة عمان</p>
                         <p className="font-bold text-sm mb-1">وزارة التربية والتعليم</p>
@@ -185,18 +197,18 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                     </div>
                 </div>
 
-                {/* Grades Section - Ordered to Match GradeBook */}
+                {/* Grades Section */}
                 <div className="mb-8">
-                    <h3 className="font-black text-lg mb-4 flex items-center gap-2">
+                    <h3 className="font-black text-lg mb-4 flex items-center gap-2 text-slate-800">
                         <FileText className="w-5 h-5 text-indigo-600" />
                         التحصيل الدراسي
                     </h3>
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-slate-100">
-                                <th className="border border-slate-300 p-3 text-sm font-bold text-right">المادة</th>
-                                <th className="border border-slate-300 p-3 text-sm font-bold text-center">أداة التقويم</th>
-                                <th className="border border-slate-300 p-3 text-sm font-bold text-center">الدرجة</th>
+                                <th className="border border-slate-300 p-3 text-sm font-bold text-right text-black">المادة</th>
+                                <th className="border border-slate-300 p-3 text-sm font-bold text-center text-black">أداة التقويم</th>
+                                <th className="border border-slate-300 p-3 text-sm font-bold text-center text-black">الدرجة</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -220,7 +232,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                                         <td className="border border-slate-300 p-3 text-sm text-center font-mono text-blue-900 border-t-2 border-slate-400">{continuousSum}</td>
                                     </tr>
 
-                                    {/* 3. Final Exam Row (Only if tool exists) */}
+                                    {/* 3. Final Exam Row */}
                                     {finalTool && (() => {
                                         const grade = currentSemesterGrades.find(g => g.category.trim() === finalTool.name.trim());
                                         return (
@@ -233,7 +245,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                                     })()}
                                 </>
                             ) : (
-                                /* Fallback if no tools defined (Raw List) */
+                                /* Fallback if no tools defined */
                                 currentSemesterGrades.length > 0 ? currentSemesterGrades.map((g, idx) => (
                                     <tr key={idx}>
                                         <td className="border border-slate-300 p-3 text-sm font-bold">{g.subject}</td>
@@ -249,8 +261,8 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                         </tbody>
                         <tfoot>
                             <tr className="bg-slate-100">
-                                <td colSpan={2} className="border border-slate-300 p-3 text-sm font-black text-right border-t-2 border-black">المجموع الكلي</td>
-                                <td className="border border-slate-300 p-3 text-sm font-black text-center font-mono text-lg border-t-2 border-black">
+                                <td colSpan={2} className="border border-slate-300 p-3 text-sm font-black text-right border-t-2 border-black text-black">المجموع الكلي</td>
+                                <td className="border border-slate-300 p-3 text-sm font-black text-center font-mono text-lg border-t-2 border-black text-black">
                                     {totalScore}
                                 </td>
                             </tr>
@@ -260,7 +272,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
 
                 {/* Attendance Summary and Details */}
                 <div className="mb-8">
-                     <h3 className="font-black text-lg mb-4 flex items-center gap-2">
+                     <h3 className="font-black text-lg mb-4 flex items-center gap-2 text-slate-800">
                         <LayoutList className="w-5 h-5 text-indigo-600" />
                         ملخص الحضور والغياب
                     </h3>
@@ -284,9 +296,9 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                         <table className="w-full border-collapse mt-2">
                             <thead>
                                 <tr className="bg-slate-100">
-                                    <th className="border border-slate-300 p-2 text-xs font-bold text-right w-1/3">التاريخ</th>
-                                    <th className="border border-slate-300 p-2 text-xs font-bold text-center">الحالة</th>
-                                    <th className="border border-slate-300 p-2 text-xs font-bold text-center">الملاحظات</th>
+                                    <th className="border border-slate-300 p-2 text-xs font-bold text-right w-1/3 text-black">التاريخ</th>
+                                    <th className="border border-slate-300 p-2 text-xs font-bold text-center text-black">الحالة</th>
+                                    <th className="border border-slate-300 p-2 text-xs font-bold text-center text-black">الملاحظات</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -308,7 +320,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
 
                 {/* Behavior Log */}
                 <div className="mb-12">
-                    <h3 className="font-black text-lg mb-4 flex items-center gap-2">
+                    <h3 className="font-black text-lg mb-4 flex items-center gap-2 text-slate-800">
                         <Award className="w-5 h-5 text-indigo-600" />
                         سجل السلوك والملاحظات
                     </h3>
@@ -342,7 +354,7 @@ const StudentReport: React.FC<StudentReportProps> = ({ student, onUpdateStudent,
                 </div>
 
                 {/* Signatures */}
-                <div className="flex justify-between items-end pt-8 border-t-2 border-slate-900/10 relative">
+                <div className="flex justify-between items-end pt-8 border-t-2 border-gray-100 relative">
                      <div className="text-center w-1/3">
                         <p className="font-bold text-sm mb-8 text-slate-500">معلم المادة</p>
                         <p className="font-black text-lg">{teacherInfo?.name || '....................'}</p>
