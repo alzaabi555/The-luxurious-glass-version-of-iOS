@@ -21,7 +21,7 @@ import NoorPlatform from './components/NoorPlatform';
 import About from './components/About';
 import UserGuide from './components/UserGuide';
 import BrandLogo from './components/BrandLogo';
-import WelcomeScreen from './components/WelcomeScreen'; // Import WelcomeScreen
+import WelcomeScreen from './components/WelcomeScreen';
 import { Loader2 } from 'lucide-react';
 import { useSchoolBell } from './hooks/useSchoolBell';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -68,7 +68,7 @@ const AppContent: React.FC = () => {
   // Handle Loading State
   if (!isDataLoaded) {
       return (
-          <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+          <div className="flex h-full w-full items-center justify-center bg-gray-50 fixed inset-0 z-[99999]">
               <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
           </div>
       );
@@ -161,7 +161,8 @@ const AppContent: React.FC = () => {
   const isMoreActive = !mobileNavItems.some(item => item.id === activeTab);
 
   return (
-    <div className="flex h-screen bg-[#f3f4f6] font-sans overflow-hidden text-slate-900 relative">
+    // استخدام h-full بدلاً من h-screen لأن body مثبت على 100dvh
+    <div className="flex h-full bg-[#f3f4f6] font-sans overflow-hidden text-slate-900 relative">
         
         {/* --- DESKTOP SIDEBAR --- */}
         <aside className="hidden md:flex w-72 flex-col bg-white border-l border-slate-200 z-50 shadow-sm transition-all h-full">
@@ -214,10 +215,9 @@ const AppContent: React.FC = () => {
         </aside>
 
         {/* --- MAIN CONTENT AREA --- */}
-        {/* تم إزالة القائمة السفلية من هنا لضمان عدم تأثرها بالتمرير أو التراكب */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-[#f3f4f6]">
+        <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-[#f3f4f6] z-0">
             <div 
-                className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-28 md:pb-4 px-4 md:px-8 pt-safe overscroll-contain"
+                className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-32 md:pb-4 px-4 md:px-8 pt-safe overscroll-contain"
                 id="main-scroll-container"
             >
                 <div className="max-w-5xl mx-auto w-full min-h-full">
@@ -226,15 +226,19 @@ const AppContent: React.FC = () => {
             </div>
         </main>
 
-        {/* --- MOBILE TAB BAR (Moved to Root Level for better Z-Index & Touch Handling) --- */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] h-[60px] bg-white rounded-t-[2.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] flex justify-around items-end pb-2 border-t border-slate-100 pb-safe safe-area-bottom">
+        {/* --- MOBILE TAB BAR --- 
+            Z-Index raised to 9999 to stay on top of everything.
+            Added transform: translateZ(0) to force hardware acceleration.
+            Pointer-events: auto to ensure clicks are captured.
+        */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[9999] h-[75px] bg-white/95 backdrop-blur-xl rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex justify-around items-end pb-3 border-t border-slate-200/50 pb-safe safe-area-bottom transition-transform duration-300 translate-z-0 pointer-events-auto">
             {mobileNavItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
                     <button
                         key={item.id}
                         onClick={() => handleNavigate(item.id)}
-                        className="relative w-full h-full flex flex-col items-center justify-end group pb-1 touch-manipulation"
+                        className="relative w-full h-full flex flex-col items-center justify-end group pb-1 touch-manipulation active:scale-95 transition-transform"
                     >
                         <span 
                             className={`
@@ -250,10 +254,10 @@ const AppContent: React.FC = () => {
 
                         <span 
                             className={`
-                                transition-all duration-300 mb-1 group-hover:scale-110 group-active:scale-95 pointer-events-none
+                                transition-all duration-300 mb-1 pointer-events-none
                                 ${isActive 
                                     ? 'opacity-0 scale-0 translate-y-10' 
-                                    : 'opacity-100 scale-100 text-gray-400 group-hover:text-indigo-500'
+                                    : 'opacity-100 scale-100 text-gray-400'
                                 }
                             `}
                         >
@@ -263,7 +267,7 @@ const AppContent: React.FC = () => {
                         <span 
                             className={`
                                 text-[10px] font-black transition-all duration-300 pointer-events-none
-                                ${isActive ? 'translate-y-1 text-indigo-600 opacity-100' : 'text-gray-400 opacity-80 group-hover:text-indigo-500'}
+                                ${isActive ? 'translate-y-1 text-indigo-600 opacity-100' : 'text-gray-400 opacity-70'}
                             `}
                         >
                             {item.label}
@@ -274,7 +278,7 @@ const AppContent: React.FC = () => {
             
             <button
                 onClick={() => setShowMoreMenu(true)}
-                className="relative w-full h-full flex flex-col items-center justify-end group pb-1 touch-manipulation"
+                className="relative w-full h-full flex flex-col items-center justify-end group pb-1 touch-manipulation active:scale-95 transition-transform"
             >
                 <span 
                     className={`
@@ -290,10 +294,10 @@ const AppContent: React.FC = () => {
 
                 <span 
                     className={`
-                        transition-all duration-300 mb-1 group-hover:scale-110 group-active:scale-95 pointer-events-none
+                        transition-all duration-300 mb-1 pointer-events-none
                         ${isMoreActive 
                             ? 'opacity-0 scale-0 translate-y-10' 
-                            : 'opacity-100 scale-100 text-gray-400 group-hover:text-indigo-500'
+                            : 'opacity-100 scale-100 text-gray-400'
                         }
                     `}
                 >
@@ -303,7 +307,7 @@ const AppContent: React.FC = () => {
                 <span 
                     className={`
                         text-[10px] font-black transition-all duration-300 pointer-events-none
-                        ${isMoreActive ? 'translate-y-1 text-indigo-600 opacity-100' : 'text-gray-400 opacity-80 group-hover:text-indigo-500'}
+                        ${isMoreActive ? 'translate-y-1 text-indigo-600 opacity-100' : 'text-gray-400 opacity-70'}
                     `}
                 >
                     المزيد
@@ -312,7 +316,7 @@ const AppContent: React.FC = () => {
         </div>
 
         {/* Mobile Menu Modal */}
-        <Modal isOpen={showMoreMenu} onClose={() => setShowMoreMenu(false)} className="max-w-md rounded-[2rem] mb-28 md:hidden">
+        <Modal isOpen={showMoreMenu} onClose={() => setShowMoreMenu(false)} className="max-w-md rounded-[2rem] mb-28 md:hidden z-[10000]">
             <div className="text-center mb-6">
                 <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
                 <h3 className="font-black text-slate-800 text-lg">القائمة الكاملة</h3>
