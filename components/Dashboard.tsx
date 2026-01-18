@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ScheduleDay, PeriodTime } from '../types';
 import { 
   Bell, Clock, Edit3, Settings, 
-  School, Camera, Upload, FileSpreadsheet, Loader2, 
+  MapPin, School, BookOpen, Camera, Upload, FileSpreadsheet, Loader2, 
   PlayCircle
 } from 'lucide-react';
 import Modal from './Modal';
@@ -241,11 +242,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
         <div className="space-y-6 pb-20 text-slate-900 animate-in fade-in duration-500">
             
-            {/* 1. قسم هوية المعلم (التصميم الجديد المصغر والمرفوع) */}
-            <div className="sticky top-0 z-50 bg-[#f3f4f6] -mx-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm border-b border-white/50">
+            {/* 1. Top Section: Teacher Profile (Compact Version) */}
+            <div className=<div className="sticky top-0 z-[100] bg-[#f3f4f6] -mx-4 -mt-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm isolate border-b border-white/50">>
                 <div className="relative flex flex-col items-center pt-2">
                     
-                    {/* أزرار التحكم الجانبية */}
+                    {/* أزرار التحكم الجانبية (تم تعديل موقعها لتناسب الحجم الجديد) */}
                     <div className="absolute top-0 w-full flex justify-between items-start px-2">
                         {/* زر التعديل (يسار) */}
                         <button 
@@ -262,7 +263,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    {/* صورة المعلم (بحجم مصغر) */}
+                    {/* صورة المعلم (تم تصغيرها من w-24 إلى w-16) */}
                     <div className="w-16 h-16 rounded-[1.2rem] bg-white p-1 shadow-sm mb-1 relative border border-white ring-2 ring-white mt-1">
                         {teacherInfo.avatar ? (
                             <img src={teacherInfo.avatar} className="w-full h-full object-cover rounded-[1rem]" alt="Profile" />
@@ -273,7 +274,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         )}
                     </div>
 
-                    {/* الاسم والبيانات (بخطوط أصغر) */}
+                    {/* الاسم والبيانات (تم تصغير الخطوط) */}
                     <h1 className="text-base font-black text-slate-800 text-center mb-0.5 drop-shadow-sm">
                         {teacherInfo.name || 'مرحباً بك يا معلم'}
                     </h1>
@@ -291,68 +292,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* 2. بطاقة الجدول (تمت إعادتها) */}
-            <div className="glass-card bg-white rounded-[2.5rem] p-5 border border-slate-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.05)] relative mt-4 mx-1 overflow-hidden">
-                {/* خلفية جمالية */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full blur-3xl opacity-50 pointer-events-none -mr-10 -mt-10"></div>
-                
-                <div className="flex justify-between items-center mb-4 relative z-10">
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setShowScheduleModal(true)} className="w-9 h-9 glass-icon rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm">
-                            <Settings className="w-4 h-4" />
-                        </button>
-                        <button onClick={onToggleNotifications} className={`w-9 h-9 glass-icon rounded-full transition-colors border shadow-sm ${notificationsEnabled ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-white text-slate-400 border-slate-200'}`}>
-                            <Bell className={`w-4 h-4 ${notificationsEnabled ? 'fill-amber-500' : ''}`} />
-                        </button>
-                        <button onClick={handleTestNotification} className="w-9 h-9 glass-icon rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 transition-colors shadow-sm" title="تجربة صوت الجرس">
-                            <PlayCircle className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scheduleFileInputRef.current?.click()} className="w-9 h-9 glass-icon rounded-full bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 transition-colors shadow-sm">
-                            {isImportingSchedule ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileSpreadsheet className="w-4 h-4" />}
-                        </button>
-                        <input type="file" ref={scheduleFileInputRef} onChange={handleImportSchedule} accept=".xlsx, .xls" className="hidden" />
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-base font-black text-slate-800 flex items-center gap-2 justify-end">
-                            جدول {todaySchedule.dayName}
-                            <Clock className="w-5 h-5 text-amber-500" />
-                        </h2>
-                        <p className="text-[10px] text-slate-400 font-bold">اليوم الدراسي الحالي</p>
-                    </div>
-                </div>
-                
-                {/* شبكة الحصص */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-10">
-                    {todaySchedule.periods.map((cls, idx) => {
-                        const pt = periodTimes[idx] || { startTime: '--:--', endTime: '--:--' };
-                        const isActive = checkActivePeriod(pt.startTime, pt.endTime) && todaySchedule.dayName === days[dayIndex];
-                        return (
-                            <div key={idx} className={`
-                                p-2 rounded-2xl flex flex-col items-center justify-center text-center min-h-[65px] relative transition-all duration-300
-                                ${isActive 
-                                    ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white border-2 border-amber-400 shadow-xl scale-105 z-10' 
-                                    : 'bg-white border border-slate-200 text-slate-600 shadow-sm hover:border-indigo-200 hover:shadow-md'
-                                }
-                            `}>
-                                {isActive && <span className="absolute -top-2.5 bg-amber-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-md animate-pulse border border-white">الآن</span>}
-                                <div className={`text-[9px] font-black mb-1 px-2 py-0.5 rounded-lg ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                    حصة {idx + 1}
-                                </div>
-                                <h3 className={`text-xs font-black truncate w-full px-1 mb-1 ${isActive ? 'text-white' : 'text-slate-800'}`}>
-                                    {cls || '-'}
-                                </h3>
-                                <span className={`text-[8px] font-bold dir-ltr block ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>
-                                    {pt.startTime} - {pt.endTime}
-                                </span>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-
-            {/* 3. النوافذ المنبثقة (Modals) */}
-            
-            {/* نافذة تعديل بيانات المعلم */}
+            {/* Edit Teacher Info Modal */}
             <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)}>
                  <div className="text-center">
                     <h3 className="font-black text-2xl mb-6 text-slate-800">إعدادات الهوية</h3>
@@ -433,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                  </div>
             </Modal>
 
-            {/* نافذة إعدادات الجدول */}
+            {/* Schedule Settings Modal */}
             <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} className="max-w-md rounded-[2rem]">
                 <div className="text-center">
                     <h3 className="font-black text-xl mb-4 text-slate-800">إعدادات الجدول</h3>

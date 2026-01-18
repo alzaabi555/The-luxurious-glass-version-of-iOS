@@ -55,7 +55,7 @@ const GradeBook: React.FC<GradeBookProps> = ({
       `,
       pill: 'rounded-xl border border-slate-200 shadow-sm hover:shadow-md',
       // تم تعديل الترويسة لتكون شفافة ومتناسقة مع خلفية التطبيق (مثل صفحة الطلاب)
-      header:'sticky top-0 z-50 bg-[#f3f4f6] px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm',
+      header:'sticky top-0 z-[100] bg-[#f3f4f6] -mx-4 -mt-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm isolate border-b border-white/50',
   };
 
   useEffect(() => {

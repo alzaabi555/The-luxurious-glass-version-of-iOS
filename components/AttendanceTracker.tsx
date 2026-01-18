@@ -173,7 +173,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({ students, classes
   return (
     <div className="flex flex-col h-full text-slate-800 relative animate-in fade-in duration-500">
         {/* Sticky Header (Light) */}
-        <div className="sticky top-0 z-50 bg-[#f3f4f6] px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm">
+        <<div className="sticky top-0 z-[100] bg-[#f3f4f6] -mx-4 -mt-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm isolate border-b border-white/50">
             {/* Removed pt-safe and large mt-4 to fix mobile spacing */}
             <div className="flex justify-between items-center mb-4 mt-2">
                 <h1 className="text-2xl font-black tracking-tight text-slate-900">سجل الغياب</h1>
