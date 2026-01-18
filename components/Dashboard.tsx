@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ScheduleDay, PeriodTime } from '../types';
 import { 
   Bell, Clock, Edit3, Settings, 
-  MapPin, School, BookOpen, Camera, Upload, FileSpreadsheet, Loader2, 
+  School, Camera, Upload, FileSpreadsheet, Loader2, 
   PlayCircle
 } from 'lucide-react';
 import Modal from './Modal';
@@ -238,7 +237,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     const dayIndex = today.getDay();
     const todaySchedule = schedule[dayIndex] || { dayName: 'اليوم', periods: [] };
     const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-return (
+
+    return (
         <div className="space-y-6 pb-20 text-slate-900 animate-in fade-in duration-500">
             
             {/* 1. قسم هوية المعلم (التصميم الجديد المصغر والمرفوع) */}
@@ -262,7 +262,7 @@ return (
                         </div>
                     </div>
 
-                    {/* صورة المعلم (بحجم مصغر w-16) */}
+                    {/* صورة المعلم (بحجم مصغر) */}
                     <div className="w-16 h-16 rounded-[1.2rem] bg-white p-1 shadow-sm mb-1 relative border border-white ring-2 ring-white mt-1">
                         {teacherInfo.avatar ? (
                             <img src={teacherInfo.avatar} className="w-full h-full object-cover rounded-[1rem]" alt="Profile" />
@@ -291,7 +291,7 @@ return (
                 </div>
             </div>
 
-            {/* 2. بطاقة الجدول (تمت إعادتها هنا) */}
+            {/* 2. بطاقة الجدول (تمت إعادتها) */}
             <div className="glass-card bg-white rounded-[2.5rem] p-5 border border-slate-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.05)] relative mt-4 mx-1 overflow-hidden">
                 {/* خلفية جمالية */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full blur-3xl opacity-50 pointer-events-none -mr-10 -mt-10"></div>
@@ -434,61 +434,6 @@ return (
             </Modal>
 
             {/* نافذة إعدادات الجدول */}
-            <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} className="max-w-md rounded-[2rem]">
-                <div className="text-center">
-                    <h3 className="font-black text-xl mb-4 text-slate-800">إعدادات الجدول</h3>
-                    
-                    <div className="flex p-1 bg-gray-100 rounded-xl mb-4 border border-gray-200">
-                        <button onClick={() => setScheduleTab('timing')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${scheduleTab === 'timing' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-slate-700'}`}>التوقيت</button>
-                        <button onClick={() => setScheduleTab('classes')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${scheduleTab === 'classes' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-slate-700'}`}>الحصص</button>
-                    </div>
-
-                    {scheduleTab === 'timing' ? (
-                        <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar p-1">
-                            {tempPeriodTimes.map((pt, idx) => (
-                                <div key={idx} className="flex items-center gap-2 mb-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                                    <span className="text-xs font-bold w-16 text-slate-500 bg-gray-50 py-2 rounded-lg">حصة {pt.periodNumber}</span>
-                                    <input type="time" value={pt.startTime} onChange={e => updateTempTime(idx, 'startTime', e.target.value)} className="flex-1 p-2 glass-input rounded-lg text-xs font-bold text-slate-800 bg-gray-50 border border-gray-200 text-center" />
-                                    <span className="text-gray-400 font-bold">-</span>
-                                    <input type="time" value={pt.endTime} onChange={e => updateTempTime(idx, 'endTime', e.target.value)} className="flex-1 p-2 glass-input rounded-lg text-xs font-bold text-slate-800 bg-gray-50 border border-gray-200 text-center" />
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                         <div className="space-y-4 max-h-64 overflow-y-auto custom-scrollbar p-1">
-                             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                 {tempSchedule.map((day, idx) => (
-                                     <button key={idx} onClick={() => setEditingDayIndex(idx)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${editingDayIndex === idx ? 'bg-indigo-600 text-white shadow-md' : 'glass-card bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
-                                         {day.dayName}
-                                     </button>
-                                 ))}
-                             </div>
-                             <div className="space-y-2">
-                                 {tempSchedule[editingDayIndex]?.periods.map((cls, pIdx) => (
-                                     <div key={pIdx} className="flex items-center gap-3">
-                                         <span className="text-xs font-bold w-12 text-slate-400 bg-slate-50 py-2.5 rounded-lg">#{pIdx + 1}</span>
-                                         <input 
-                                             placeholder="اسم الفصل / المادة" 
-                                             value={cls} 
-                                             onChange={e => updateTempClass(editingDayIndex, pIdx, e.target.value)}
-                                             className="flex-1 p-2.5 glass-input rounded-xl text-xs font-bold text-slate-800 bg-white border border-gray-200 focus:border-indigo-500 outline-none shadow-sm"
-                                         />
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
-                    )}
-                    
-                    <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
-                        <button onClick={() => setShowScheduleModal(false)} className="flex-1 py-3.5 text-slate-500 font-bold text-xs hover:bg-gray-100 rounded-xl transition-colors">إلغاء</button>
-                        <button onClick={handleSaveScheduleSettings} className="flex-[2] py-3.5 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">حفظ التغييرات</button>
-                    </div>
-                </div>
-            </Modal>
-
-        </div>
-    );
-            {/* Schedule Settings Modal */}
             <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} className="max-w-md rounded-[2rem]">
                 <div className="text-center">
                     <h3 className="font-black text-xl mb-4 text-slate-800">إعدادات الجدول</h3>
