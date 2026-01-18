@@ -46,10 +46,11 @@ const NoorPlatform: React.FC = () => {
       {/* Action Section */}
       <div className="flex-1 p-6 flex flex-col items-center justify-center space-y-6">
          
-         <div className="glass-card p-4 rounded-2xl border border-amber-500/20 w-full bg-amber-500/10 shimmer-hover">
+         {/* تم تغيير اللون هنا إلى الأسود الشفاف */}
+         <div className="glass-card p-4 rounded-2xl border border-black/20 w-full bg-black/30 shimmer-hover">
             <div className="flex gap-3 items-start">
-               <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-               <p className="text-[10px] font-bold text-amber-100/90 leading-relaxed text-right">
+               <ShieldCheck className="w-5 h-5 text-white/70 shrink-0 mt-0.5" />
+               <p className="text-[10px] font-bold text-white/80 leading-relaxed text-right">
                   سيتم فتح المنصة في نافذة مخصصة. 
                   <br/>
                   للعودة للتطبيق، استخدم زر <strong>"Done"</strong> أو <strong>"إغلاق"</strong>.

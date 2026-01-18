@@ -34,7 +34,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onFinish }) => {
                     </div>
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
                         <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-2"><Zap className="w-5 h-5"/></div>
-                        <h3 className="font-black text-xs text-slate-800">تحفيز وتنافس</h3>
+                        <h3 className="font-black text-xs text-slate-800">تقارير متنوعة للحفظ والطباعة </h3>
                     </div>
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
                         <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-2"><ShieldCheck className="w-5 h-5"/></div>
@@ -51,7 +51,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onFinish }) => {
             id: 2,
             icon: <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-[2rem] flex items-center justify-center shadow-inner"><ShieldCheck className="w-12 h-12" /></div>,
             title: "بياناتك في أمان",
-            desc: "نحن نحترم خصوصيتك. جميع بيانات طلابك وسجلاتك محفوظة محلياً على جهازك فقط ولا يتم مشاركتها سحابياً.",
+            desc: " نحن نحترم خصوصيتك. جميع بيانات طلابك وسجلاتك محفوظة محلياً على جهازك فقط ولا يتم مشاركتها سحابياً/  تحياتي لكم محمد درويش الزعابي ",
             buttonText: "ابدأ التجربة الآن",
             color: "text-emerald-600",
             bg: "bg-emerald-50"

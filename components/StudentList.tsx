@@ -178,7 +178,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
           if(confirm(`حذف الطالب ${student.name}؟`)) onDeleteStudent(student.id);
       }
       else if (type === 'truant') {
-          if(confirm('تسجيل هروب (تسرب) لهذا الطالب؟')) {
+          if(confirm('تسجيل (تسرب) لهذا الطالب؟')) {
              handleAddBehavior(student, 'negative', 'تسرب من الحصة', 3);
           }
       }
@@ -300,7 +300,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, onAddClass
         </AnimatePresence>
 
         {/* Sticky Header (Light Theme) */}
-        <div className="sticky top-0 z-30 pb-2 bg-[#f3f4f6] -mx-4 px-4 -mt-4">
+        <div className="sticky top-0 z-50 bg-[#f3f4f6] px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm">
             {/* Removed pt-safe and large mt-4 to fix mobile spacing */}
             <div className="flex justify-between items-center mb-4 mt-2">
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight drop-shadow-sm">قائمة الطلاب</h1>

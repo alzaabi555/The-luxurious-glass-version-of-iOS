@@ -112,7 +112,7 @@ const GradesTemplate = ({ students, tools, finalTool, teacherInfo, semester, gra
         <div className="w-full text-black bg-white p-10">
             <div className="text-center mb-6 border-b-2 border-black pb-4">
                 <div className="flex justify-between items-center mb-4">
-                    <div className="text-right text-sm font-bold"><p>سلطنة عمان</p><p>وزارة التربية والتعليم</p></div>
+                    <div className="text-right text-sm font-bold"><p>سلطنة عمان</p><p>وزارة التعليم</p></div>
                     <div><h1 className="text-xl font-black underline">سجل درجات الطلاب</h1></div>
                     <div className="text-left text-sm font-bold"><p>المادة: {teacherInfo?.subject}</p><p>الصف: {gradeClass}</p></div>
                 </div>
@@ -157,7 +157,7 @@ const GradesTemplate = ({ students, tools, finalTool, teacherInfo, semester, gra
                     })}
                 </tbody>
             </table>
-            <div className="mt-6 flex justify-between px-10 font-bold text-xs"><p>توقيع المعلم: ....................</p><p>يعتمد مدير المدرسة: ....................</p></div>
+            <div className="mt-6 flex justify-between px-10 font-bold text-xs"><p>توقيع المعلم: .............</p><p>يعتمد مدير المدرسة: ................</p></div>
         </div>
     );
 };
@@ -222,7 +222,8 @@ const CertificatesTemplate = ({ students, settings, teacherInfo }: any) => {
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', width:'100%'}}>
                                 <div style={{textAlign:'right'}}>
                                     <p style={{margin:0, fontWeight:'bold', fontSize:'14px'}}>سلطنة عمان</p>
-                                    <p style={{margin:0, fontWeight:'bold', fontSize:'14px'}}>وزارة التربية والتعليم</p>
+                                    <p style={{margin:0, fontWeight:'bold', fontSize:'14px'}}>وزارة التعليم</p>
+                                    <p style={{margin:0, fontWeight:'bold', fontSize:'14px'}}>المديرية العامة للتربية والتعليم بمحافظة الباطنة شمال </p>
                                 </div>
                                 <div>
                                     {teacherInfo?.ministryLogo && <img src={teacherInfo.ministryLogo} style={{height:'60px', objectFit:'contain'}} alt="Logo" />}
@@ -268,7 +269,8 @@ const SummonTemplate = ({ student, teacherInfo, data }: any) => {
         <div className="w-full text-black bg-white p-10 font-serif text-right h-full" dir="rtl">
              <div className="text-center mb-10 border-b border-black pb-4">
                 {teacherInfo?.ministryLogo && <img src={teacherInfo.ministryLogo} className="h-16 mx-auto mb-2 object-contain" />}
-                <h3 className="font-bold text-sm">سلطنة عمان - وزارة التربية والتعليم</h3>
+                <h3 className="font-bold text-sm">سلطنة عمان - وزارة التعليم</h3>
+                  <h3 className="font-bold text-sm">المديرية العامة للتربية والتعليم بمحافظة الباطنة شمال</h3>
                 <h3 className="font-bold text-sm">مدرسة {teacherInfo?.school}</h3>
             </div>
             <div className="flex justify-between items-end mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -333,7 +335,7 @@ const ClassReportsTemplate = ({ students, teacherInfo, semester, assessmentTools
                          style={{ backgroundColor: '#ffffff', color: '#000000', pageBreakAfter: 'always' }}>
                         
                         <div className="flex justify-between items-start mb-6 border-b-2 border-slate-200 pb-4">
-                            <div className="text-center w-1/3 font-bold text-xs text-black"><p>سلطنة عمان</p><p>وزارة التربية والتعليم</p><p>مدرسة {teacherInfo?.school}</p></div>
+                            <div className="text-center w-1/3 font-bold text-xs text-black"><p>سلطنة عمان</p><p>وزارة التعليم</p><p>مدرسة {teacherInfo?.school}</p></div>
                             <div className="text-center w-1/3">
                                 {teacherInfo?.ministryLogo && <img src={teacherInfo.ministryLogo} className="h-16 object-contain mx-auto" />}
                                 <h2 className="text-lg font-black underline mt-2 text-black">تقرير مستوى طالب</h2>
