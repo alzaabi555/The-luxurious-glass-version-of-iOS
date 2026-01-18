@@ -238,15 +238,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     const dayIndex = today.getDay();
     const todaySchedule = schedule[dayIndex] || { dayName: 'اليوم', periods: [] };
     const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-
-    return (
+return (
         <div className="space-y-6 pb-20 text-slate-900 animate-in fade-in duration-500">
             
-            {/* 1. Top Section: Teacher Profile (Compact Version) */}
+            {/* 1. قسم هوية المعلم (التصميم الجديد المصغر والمرفوع) */}
             <div className="sticky top-0 z-50 bg-[#f3f4f6] -mx-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm border-b border-white/50">
                 <div className="relative flex flex-col items-center pt-2">
                     
-                    {/* أزرار التحكم الجانبية (تم تعديل موقعها لتناسب الحجم الجديد) */}
+                    {/* أزرار التحكم الجانبية */}
                     <div className="absolute top-0 w-full flex justify-between items-start px-2">
                         {/* زر التعديل (يسار) */}
                         <button 
@@ -263,7 +262,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    {/* صورة المعلم (تم تصغيرها من w-24 إلى w-16) */}
+                    {/* صورة المعلم (بحجم مصغر w-16) */}
                     <div className="w-16 h-16 rounded-[1.2rem] bg-white p-1 shadow-sm mb-1 relative border border-white ring-2 ring-white mt-1">
                         {teacherInfo.avatar ? (
                             <img src={teacherInfo.avatar} className="w-full h-full object-cover rounded-[1rem]" alt="Profile" />
@@ -274,7 +273,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         )}
                     </div>
 
-                    {/* الاسم والبيانات (تم تصغير الخطوط) */}
+                    {/* الاسم والبيانات (بخطوط أصغر) */}
                     <h1 className="text-base font-black text-slate-800 text-center mb-0.5 drop-shadow-sm">
                         {teacherInfo.name || 'مرحباً بك يا معلم'}
                     </h1>
@@ -292,7 +291,68 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* Edit Teacher Info Modal */}
+            {/* 2. بطاقة الجدول (تمت إعادتها هنا) */}
+            <div className="glass-card bg-white rounded-[2.5rem] p-5 border border-slate-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.05)] relative mt-4 mx-1 overflow-hidden">
+                {/* خلفية جمالية */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full blur-3xl opacity-50 pointer-events-none -mr-10 -mt-10"></div>
+                
+                <div className="flex justify-between items-center mb-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setShowScheduleModal(true)} className="w-9 h-9 glass-icon rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm">
+                            <Settings className="w-4 h-4" />
+                        </button>
+                        <button onClick={onToggleNotifications} className={`w-9 h-9 glass-icon rounded-full transition-colors border shadow-sm ${notificationsEnabled ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-white text-slate-400 border-slate-200'}`}>
+                            <Bell className={`w-4 h-4 ${notificationsEnabled ? 'fill-amber-500' : ''}`} />
+                        </button>
+                        <button onClick={handleTestNotification} className="w-9 h-9 glass-icon rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 transition-colors shadow-sm" title="تجربة صوت الجرس">
+                            <PlayCircle className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scheduleFileInputRef.current?.click()} className="w-9 h-9 glass-icon rounded-full bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 transition-colors shadow-sm">
+                            {isImportingSchedule ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileSpreadsheet className="w-4 h-4" />}
+                        </button>
+                        <input type="file" ref={scheduleFileInputRef} onChange={handleImportSchedule} accept=".xlsx, .xls" className="hidden" />
+                    </div>
+                    <div className="text-right">
+                        <h2 className="text-base font-black text-slate-800 flex items-center gap-2 justify-end">
+                            جدول {todaySchedule.dayName}
+                            <Clock className="w-5 h-5 text-amber-500" />
+                        </h2>
+                        <p className="text-[10px] text-slate-400 font-bold">اليوم الدراسي الحالي</p>
+                    </div>
+                </div>
+                
+                {/* شبكة الحصص */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-10">
+                    {todaySchedule.periods.map((cls, idx) => {
+                        const pt = periodTimes[idx] || { startTime: '--:--', endTime: '--:--' };
+                        const isActive = checkActivePeriod(pt.startTime, pt.endTime) && todaySchedule.dayName === days[dayIndex];
+                        return (
+                            <div key={idx} className={`
+                                p-2 rounded-2xl flex flex-col items-center justify-center text-center min-h-[65px] relative transition-all duration-300
+                                ${isActive 
+                                    ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white border-2 border-amber-400 shadow-xl scale-105 z-10' 
+                                    : 'bg-white border border-slate-200 text-slate-600 shadow-sm hover:border-indigo-200 hover:shadow-md'
+                                }
+                            `}>
+                                {isActive && <span className="absolute -top-2.5 bg-amber-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-md animate-pulse border border-white">الآن</span>}
+                                <div className={`text-[9px] font-black mb-1 px-2 py-0.5 rounded-lg ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                    حصة {idx + 1}
+                                </div>
+                                <h3 className={`text-xs font-black truncate w-full px-1 mb-1 ${isActive ? 'text-white' : 'text-slate-800'}`}>
+                                    {cls || '-'}
+                                </h3>
+                                <span className={`text-[8px] font-bold dir-ltr block ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                    {pt.startTime} - {pt.endTime}
+                                </span>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* 3. النوافذ المنبثقة (Modals) */}
+            
+            {/* نافذة تعديل بيانات المعلم */}
             <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)}>
                  <div className="text-center">
                     <h3 className="font-black text-2xl mb-6 text-slate-800">إعدادات الهوية</h3>
@@ -373,6 +433,61 @@ const Dashboard: React.FC<DashboardProps> = ({
                  </div>
             </Modal>
 
+            {/* نافذة إعدادات الجدول */}
+            <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} className="max-w-md rounded-[2rem]">
+                <div className="text-center">
+                    <h3 className="font-black text-xl mb-4 text-slate-800">إعدادات الجدول</h3>
+                    
+                    <div className="flex p-1 bg-gray-100 rounded-xl mb-4 border border-gray-200">
+                        <button onClick={() => setScheduleTab('timing')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${scheduleTab === 'timing' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-slate-700'}`}>التوقيت</button>
+                        <button onClick={() => setScheduleTab('classes')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${scheduleTab === 'classes' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-slate-700'}`}>الحصص</button>
+                    </div>
+
+                    {scheduleTab === 'timing' ? (
+                        <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar p-1">
+                            {tempPeriodTimes.map((pt, idx) => (
+                                <div key={idx} className="flex items-center gap-2 mb-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+                                    <span className="text-xs font-bold w-16 text-slate-500 bg-gray-50 py-2 rounded-lg">حصة {pt.periodNumber}</span>
+                                    <input type="time" value={pt.startTime} onChange={e => updateTempTime(idx, 'startTime', e.target.value)} className="flex-1 p-2 glass-input rounded-lg text-xs font-bold text-slate-800 bg-gray-50 border border-gray-200 text-center" />
+                                    <span className="text-gray-400 font-bold">-</span>
+                                    <input type="time" value={pt.endTime} onChange={e => updateTempTime(idx, 'endTime', e.target.value)} className="flex-1 p-2 glass-input rounded-lg text-xs font-bold text-slate-800 bg-gray-50 border border-gray-200 text-center" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                         <div className="space-y-4 max-h-64 overflow-y-auto custom-scrollbar p-1">
+                             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                 {tempSchedule.map((day, idx) => (
+                                     <button key={idx} onClick={() => setEditingDayIndex(idx)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${editingDayIndex === idx ? 'bg-indigo-600 text-white shadow-md' : 'glass-card bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
+                                         {day.dayName}
+                                     </button>
+                                 ))}
+                             </div>
+                             <div className="space-y-2">
+                                 {tempSchedule[editingDayIndex]?.periods.map((cls, pIdx) => (
+                                     <div key={pIdx} className="flex items-center gap-3">
+                                         <span className="text-xs font-bold w-12 text-slate-400 bg-slate-50 py-2.5 rounded-lg">#{pIdx + 1}</span>
+                                         <input 
+                                             placeholder="اسم الفصل / المادة" 
+                                             value={cls} 
+                                             onChange={e => updateTempClass(editingDayIndex, pIdx, e.target.value)}
+                                             className="flex-1 p-2.5 glass-input rounded-xl text-xs font-bold text-slate-800 bg-white border border-gray-200 focus:border-indigo-500 outline-none shadow-sm"
+                                         />
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                    )}
+                    
+                    <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
+                        <button onClick={() => setShowScheduleModal(false)} className="flex-1 py-3.5 text-slate-500 font-bold text-xs hover:bg-gray-100 rounded-xl transition-colors">إلغاء</button>
+                        <button onClick={handleSaveScheduleSettings} className="flex-[2] py-3.5 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">حفظ التغييرات</button>
+                    </div>
+                </div>
+            </Modal>
+
+        </div>
+    );
             {/* Schedule Settings Modal */}
             <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} className="max-w-md rounded-[2rem]">
                 <div className="text-center">
