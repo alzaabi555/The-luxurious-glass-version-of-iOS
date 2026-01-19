@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Student, GradeRecord, AssessmentTool } from '../types';
 import { Plus, X, Trash2, Settings, Check, Loader2, Edit2, FileSpreadsheet, FileUp, Wand2 } from 'lucide-react';
@@ -54,8 +53,6 @@ const GradeBook: React.FC<GradeBookProps> = ({
         transition-all duration-300 relative overflow-hidden shadow-sm
       `,
       pill: 'rounded-xl border border-slate-200 shadow-sm hover:shadow-md',
-      // تم تعديل الترويسة لتكون شفافة ومتناسقة مع خلفية التطبيق (مثل صفحة الطلاب)
-      header:'sticky top-0 z-[100] bg-[#f3f4f6] -mx-4 -mt-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm isolate border-b border-white/50',
   };
 
   useEffect(() => {
@@ -380,11 +377,14 @@ const GradeBook: React.FC<GradeBookProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full text-slate-800">
+    <div className="flex flex-col h-full text-slate-800 bg-[#f3f4f6] relative">
         
-        {/* Sticky Header (Updated to match StudentList style - No Box) */}
-        <div className={styles.header}>
-            {/* Removed pt-safe and large mt-4 to fix mobile spacing */}
+        {/* ================= Header ثابت (الترويسة) ================= */}
+        {/* z-50: تجعله فوق كل شيء
+            bg-[#eef2ff]: لون خلفية صلب (غير شفاف) ليخفي الأسماء تحته
+        */}
+        <div className="fixed top-0 left-0 right-0 z-50 bg-[#eef2ff] px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm border-b border-indigo-100/50">
+            {/* الصف العلوي: العنوان والأزرار */}
             <div className="flex justify-between items-center mb-3 mt-2">
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">سجل الدرجات</h1>
                 <div className="flex gap-2">
@@ -404,7 +404,7 @@ const GradeBook: React.FC<GradeBookProps> = ({
                 </div>
             </div>
 
-            {/* Hierarchical Filters */}
+            {/* الصف الثاني: فلاتر الصفوف والفصول */}
             <div className="space-y-2 mb-2">
                 {/* Grades */}
                 {availableGrades.length > 0 && (
@@ -424,7 +424,7 @@ const GradeBook: React.FC<GradeBookProps> = ({
                 </div>
             </div>
 
-            {/* Assessment Tools Quick Bar */}
+            {/* الصف الثالث: شريط أدوات الرصد السريع */}
             <div className="overflow-x-auto no-scrollbar flex gap-2 pt-1 pb-1">
                 {tools.length > 0 ? tools.map(tool => (
                     <button 
@@ -441,48 +441,66 @@ const GradeBook: React.FC<GradeBookProps> = ({
             </div>
         </div>
 
-        {/* Content - Student List */}
-        <div className="flex-1 overflow-y-auto px-2 pb-20 custom-scrollbar pt-2">
-            {filteredStudents.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3">
-                    {filteredStudents.map((student) => {
-                        const semGrades = getSemesterGrades(student, currentSemester);
-                        const totalScore = semGrades.reduce((sum, g) => sum + (Number(g.score) || 0), 0);
+        {/* ================= الحل هنا =================
+            حاوية قائمة الطلاب: 
+            h-full: تأخذ كامل ارتفاع الشاشة (من أعلى نقطة في الهاتف)
+            overflow-y-auto: قابلة للتمرير
+            
+            وداخلها:
+            div className="h-[220px]": هذا هو "الفاصل" الموجود *داخل* القائمة.
+            وظيفته: حجز مساحة فارغة في بداية القائمة تعادل ارتفاع المربع العلوي.
+            
+            النتيجة: 
+            عندما تفتح الصفحة، الطلاب يظهرون تحت المربع.
+            عندما تمرر للأعلى، الفاصل يصعد للأعلى (ويختفي خلف المربع)، والأسماء تتبعه وتختفي خلف المربع بسلاسة.
+        */}
+        <div className="h-full overflow-y-auto custom-scrollbar">
+            
+            {/* هذا هو الفاصل داخل القائمة - يضمن أن الأسماء تبدأ تحت المربع، وتتحرك خلفه عند التمرير */}
+            <div className="w-full h-[220px] shrink-0"></div>
 
-                        return (
-                            <div key={student.id} onClick={() => setShowAddGrade({ student })} className={`${styles.card} p-4 flex items-center justify-between cursor-pointer active:scale-[0.99] group`}>
-                                <div className="flex items-center gap-4 relative z-10">
-                                    <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center font-bold text-slate-400 overflow-hidden shadow-inner border border-gray-200 group-hover:border-indigo-200 transition-colors">
-                                        {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover"/> : student.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-black text-slate-900 group-hover:text-indigo-700 transition-colors">{student.name}</h3>
-                                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                            {tools.slice(0, 3).map(tool => {
-                                                const grade = semGrades.find(g => g.category.trim() === tool.name.trim());
-                                                return (
-                                                    <span key={tool.id} className="text-[9px] px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold">
-                                                        {tool.name}: <span className="text-indigo-600">{grade ? grade.score : '-'}</span>
-                                                    </span>
-                                                )
-                                            })}
+            <div className="px-4 pb-20 pt-2">
+                {filteredStudents.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3">
+                        {filteredStudents.map((student) => {
+                            const semGrades = getSemesterGrades(student, currentSemester);
+                            const totalScore = semGrades.reduce((sum, g) => sum + (Number(g.score) || 0), 0);
+
+                            return (
+                                <div key={student.id} onClick={() => setShowAddGrade({ student })} className={`${styles.card} p-4 flex items-center justify-between cursor-pointer active:scale-[0.99] group`}>
+                                    <div className="flex items-center gap-4 relative z-10">
+                                        <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center font-bold text-slate-400 overflow-hidden shadow-inner border border-gray-200 group-hover:border-indigo-200 transition-colors">
+                                            {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover"/> : student.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-900 group-hover:text-indigo-700 transition-colors">{student.name}</h3>
+                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                {tools.slice(0, 3).map(tool => {
+                                                    const grade = semGrades.find(g => g.category.trim() === tool.name.trim());
+                                                    return (
+                                                        <span key={tool.id} className="text-[9px] px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold">
+                                                            {tool.name}: <span className="text-indigo-600">{grade ? grade.score : '-'}</span>
+                                                        </span>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="text-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 shadow-inner group-hover:bg-white transition-colors relative z-10 min-w-[70px]">
+                                        <span className={`block text-2xl font-black ${getSymbolColor(totalScore)}`}>{totalScore}</span>
+                                        <span className="text-[10px] font-bold text-slate-400">{getGradeSymbol(totalScore)}</span>
+                                    </div>
                                 </div>
-                                <div className="text-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 shadow-inner group-hover:bg-white transition-colors relative z-10 min-w-[70px]">
-                                    <span className={`block text-2xl font-black ${getSymbolColor(totalScore)}`}>{totalScore}</span>
-                                    <span className="text-[10px] font-bold text-slate-400">{getGradeSymbol(totalScore)}</span>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400 opacity-50">
-                    <FileSpreadsheet className="w-16 h-16 mb-4" />
-                    <p className="font-bold">لا يوجد طلاب مطابقين</p>
-                </div>
-            )}
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-400 opacity-50">
+                        <FileSpreadsheet className="w-16 h-16 mb-4" />
+                        <p className="font-bold">لا يوجد طلاب مطابقين</p>
+                    </div>
+                )}
+            </div>
         </div>
 
         {/* ... Modals (Add Grade, Tools Manager, Bulk Fill) ... */}

@@ -241,28 +241,31 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
         <div className="space-y-6 pb-20 text-slate-900 animate-in fade-in duration-500">
             
-            {/* 1. Top Section: Teacher Profile (Clean Design - No Box) */}
-            <div className="sticky top-0 z-[100] bg-[#f3f4f6] -mx-4 -mt-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm isolate border-b border-white/50">
+            {/* 1. Top Section: Teacher Profile */}
+            {/* الخلفية #eef2ff - sticky - الحدود #indigo-100 */}
+            <div className="sticky top-0 z-[100] bg-[#eef2ff] -mx-4 -mt-4 px-4 pt-[env(safe-area-inset-top)] pb-2 shadow-sm isolate border-b border-indigo-100/50">
                 <div className="relative flex flex-col items-center pt-2">
                     
                     {/* Header Controls Container */}
                     <div className="absolute top-0 w-full flex justify-between items-start px-2">
-                        {/* Edit Button (Left Side) */}
+                        
+                        {/* تعديل 1: زر القلم (التعديل) في اليسار مع تكبير الحجم */}
                         <button 
                             onClick={() => setShowEditModal(true)}
-                            className="glass-icon p-2 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 shadow-sm active:scale-95"
+                            className="absolute left-2 top-0 glass-icon p-3 rounded-2xl bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 shadow-sm active:scale-95 transition-all" 
                         >
-                            <Edit3 className="w-4 h-4" />
+                            <Edit3 className="w-5 h-5" />
                         </button>
 
-                        {/* Logo (Right Side) */}
-                        <div className="flex flex-col items-center">
-                            <BrandLogo className="w-8 h-8" showText={false} />
-                            <span className="text-[8px] font-black text-indigo-600 tracking-wider">راصد</span>
+                        {/* تعديل 2: اللوجو واسم التطبيق في اليمين مع تكبير الحجم */}
+                        <div className="flex flex-col items-center gap-1 absolute right-2 top-0">
+                            <BrandLogo className="w-10 h-10" showText={false} />
+                            <span className="text-[10px] font-black text-indigo-600 tracking-wider">راصد</span>
                         </div>
+
                     </div>
 
-                    <div className="flex flex-col items-center w-full">
+                    <div className="flex flex-col items-center w-full mt-2">
                         <div className="w-16 h-16 rounded-[1.2rem] bg-white p-1 shadow-sm mb-1 relative border border-white ring-2 ring-white mt-1">
                             {teacherInfo.avatar ? (
                                 <img src={teacherInfo.avatar} className="w-full h-full object-cover rounded-[1rem]" alt="Profile" />
@@ -275,14 +278,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <h1 className="text-base font-black text-slate-800 text-center mb-0.5 drop-shadow-sm">
                             {teacherInfo.name || 'مرحباً بك يا معلم'}
                         </h1>
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                        <div className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500">
                             {teacherInfo.school && (
                                 <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-full border border-gray-100 shadow-sm">
                                     <School className="w-3 h-3 text-indigo-500"/> {teacherInfo.school}
                                 </span>
                             )}
-                            <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-md shadow-sm">
-                                ف {currentSemester}
+                            
+                            {/* تعديل 3: كتابة اسم الفصل الدراسي كاملاً */}
+                            <span className="bg-indigo-600 text-white px-3 py-1 rounded-lg shadow-sm mt-1">
+                                {currentSemester === '1' ? 'الفصل الدراسي الأول' : 'الفصل الدراسي الثاني'}
                             </span>
                         </div>
                     </div>
