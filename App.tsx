@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -141,15 +140,15 @@ const AppContent: React.FC = () => {
   // Mobile Bottom Bar Items
   const mobileNavItems = [
       { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-      { id: 'attendance', label: 'الحضور', icon: CalendarCheck },
-      { id: 'students', label: 'الطلاب', icon: Users },
+      { id: 'students', label: 'الطلاب', icon: Users },          // تم الرفع للأعلى
+      { id: 'attendance', label: 'الحضور', icon: CalendarCheck }, // تم النزول للأسفل
       { id: 'grades', label: 'الدرجات', icon: BarChart3 },
   ];
 
   const desktopNavItems = [
       { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-      { id: 'attendance', label: 'الحضور', icon: CalendarCheck },
-      { id: 'students', label: 'الطلاب', icon: Users },
+      { id: 'students', label: 'الطلاب', icon: Users },          // تم الرفع للأعلى
+      { id: 'attendance', label: 'الحضور', icon: CalendarCheck }, // تم النزول للأسفل
       { id: 'grades', label: 'الدرجات', icon: BarChart3 },
       { id: 'reports', label: 'التقارير', icon: FileText },
       { id: 'noor', label: 'منصة نور', icon: Globe },
@@ -162,6 +161,7 @@ const AppContent: React.FC = () => {
 
   return (
     // استخدام h-full بدلاً من h-screen لأن body مثبت على 100dvh
+    // الخلفية العامة للصفحة #f3f4f6 (الرمادي)
     <div className="flex h-full bg-[#f3f4f6] font-sans overflow-hidden text-slate-900 relative">
         
         {/* --- DESKTOP SIDEBAR --- */}
@@ -227,11 +227,10 @@ const AppContent: React.FC = () => {
         </main>
 
         {/* --- MOBILE TAB BAR --- 
-            Z-Index raised to 9999 to stay on top of everything.
-            Added transform: translateZ(0) to force hardware acceleration.
-            Pointer-events: auto to ensure clicks are captured.
+            التعديلات هنا فقط على الألوان (bg و border)
+            تم الحفاظ على touch-manipulation, pointer-events, active:scale
         */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[9999] h-[75px] bg-white/95 backdrop-blur-xl rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex justify-around items-end pb-3 border-t border-slate-200/50 pb-safe safe-area-bottom transition-transform duration-300 translate-z-0 pointer-events-auto">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[9999] h-[75px] bg-[#eef2ff] rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex justify-around items-end pb-3 border-t border-indigo-100/50 pb-safe safe-area-bottom transition-transform duration-300 translate-z-0 pointer-events-auto">
             {mobileNavItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
@@ -244,7 +243,8 @@ const AppContent: React.FC = () => {
                             className={`
                                 absolute top-0 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) pointer-events-none
                                 ${isActive 
-                                    ? 'w-14 h-14 bg-indigo-600 rounded-full -mt-6 border-[6px] border-[#f3f4f6] shadow-[0_10px_20px_rgba(79,70,229,0.3)] flex items-center justify-center transform scale-100 opacity-100' 
+                                    // هنا جعلنا الحد الخارجي نفس لون البار الجديد #eef2ff لدمج الدائرة
+                                    ? 'w-14 h-14 bg-indigo-600 rounded-full -mt-6 border-[6px] border-[#eef2ff] shadow-[0_10px_20px_rgba(79,70,229,0.3)] flex items-center justify-center transform scale-100 opacity-100' 
                                     : 'w-0 h-0 bg-transparent border-0 opacity-0 scale-0 translate-y-12'
                                 }
                             `}
@@ -284,7 +284,8 @@ const AppContent: React.FC = () => {
                     className={`
                         absolute top-0 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) pointer-events-none
                         ${isMoreActive 
-                            ? 'w-14 h-14 bg-indigo-600 rounded-full -mt-6 border-[6px] border-[#f3f4f6] shadow-[0_10px_20px_rgba(79,70,229,0.3)] flex items-center justify-center transform scale-100 opacity-100' 
+                            // هنا جعلنا الحد الخارجي نفس لون البار الجديد #eef2ff
+                            ? 'w-14 h-14 bg-indigo-600 rounded-full -mt-6 border-[6px] border-[#eef2ff] shadow-[0_10px_20px_rgba(79,70,229,0.3)] flex items-center justify-center transform scale-100 opacity-100' 
                             : 'w-0 h-0 bg-transparent border-0 opacity-0 scale-0 translate-y-12'
                         }
                     `}
